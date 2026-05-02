@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GooD Glitch</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Audiowide&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+<style>
+:root {
+  --bg:     #0B1120;
+  --gold:   #F59E0B;
+  --pink:   #EC4899;
+  --green:  #10B981;
+  --amber:  #F59E0B;
+  --indigo: #6366F1;
+  --blue:   #38BDF8;
+  --text:   #F1F5F9;
+  --muted:  #94A3B8;
+  --glass:  rgba(11,17,32,0.82);
+  --border: rgba(248,250,252,0.08);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;cursor:none}
+
+/* ═══ INTRO ═══ */
+#intro{position:fixed;inset:0;z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 40%,#0f1d3a 0%,var(--bg) 70%);transition:opacity .6s}
+.star-field{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.star{position:absolute;border-radius:50%;background:#fff;animation:twinkle var(--d,3s) ease-in-out infinite var(--del,0s)}
+@keyframes twinkle{0%,100%{opacity:.1}50%{opacity:var(--op,.8)}}
+.intro-mark{font-family:'Audiowide',sans-serif;font-size:11px;color:var(--gold);letter-spacing:.4em;margin-bottom:22px;position:relative;z-index:1;opacity:.8}
+.intro-logo{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:clamp(38px,6vw,80px);color:var(--text);letter-spacing:-.02em;position:relative;z-index:1;line-height:1}
+.intro-logo span{color:var(--gold)}
+.intro-tag{font-size:clamp(14px,1.5vw,18px);font-weight:300;color:var(--muted);margin-top:14px;position:relative;z-index:1;letter-spacing:.02em}
+.gesture-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:480px;margin:36px 0;position:relative;z-index:1}
+.gpill{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:12px;padding:14px 12px;text-align:center}
+.gpill .ge{font-size:24px;display:block;margin-bottom:6px}
+.gpill .gk{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:.12em}
+.gpill .gv{font-size:11px;color:rgba(241,245,249,.4);margin-top:3px}
+.start-btn{padding:14px 44px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:15px;letter-spacing:.08em;color:var(--bg);background:var(--gold);border:none;border-radius:8px;cursor:pointer;transition:all .25s;box-shadow:0 0 30px rgba(245,158,11,.35);position:relative;z-index:1}
+.start-btn:hover{transform:translateY(-2px);box-shadow:0 0 50px rgba(245,158,11,.5)}
+.cam-note{font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(245,158,11,.35);margin-top:16px;letter-spacing:.2em;position:relative;z-index:1}
+
+/* ═══ LOADING ═══ */
+#loading{position:fixed;inset:0;z-index:999;display:none;flex-direction:column;align-items:center;justify-content:center;background:var(--bg)}
+.ld-logo{font-family:'Audiowide',sans-serif;font-size:11px;color:var(--gold);letter-spacing:.3em;margin-bottom:24px;animation:blink 1.2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.ld-track{width:260px;height:2px;background:rgba(245,158,11,.12);border-radius:2px;overflow:hidden}
+.ld-fill{height:100%;width:0%;background:var(--gold);transition:width .35s;box-shadow:0 0 8px var(--gold)}
+.ld-msg{font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(245,158,11,.4);margin-top:14px;letter-spacing:.1em}
+
+/* ═══ APP ═══ */
+#app{position:fixed;inset:0;display:none;opacity:0;transition:opacity .9s}
+
+/* canvas overlay */
+#cv{position:fixed;inset:0;z-index:100;pointer-events:none}
+
+/* camera preview */
+#cam-wrap{position:fixed;bottom:22px;right:22px;width:160px;height:120px;border-radius:10px;overflow:hidden;z-index:201;border:1px solid rgba(245,158,11,.2);box-shadow:0 0 20px rgba(245,158,11,.1)}
+#cam-wrap video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.cam-badge{position:absolute;bottom:5px;left:7px;font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--gold);opacity:.65;letter-spacing:.1em}
+
+/* ═══ HUD ═══ */
+#hud{position:fixed;top:0;left:0;right:0;height:48px;z-index:200;display:flex;align-items:center;padding:0 22px;gap:24px;background:rgba(11,17,32,.9);border-bottom:1px solid rgba(255,255,255,.05);backdrop-filter:blur(16px);font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(241,245,249,.4);letter-spacing:.08em}
+.hud-brand{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:15px;color:var(--text);letter-spacing:-.01em;margin-right:auto}
+.hud-brand span{color:var(--gold)}
+.hud-sep{width:1px;height:20px;background:rgba(255,255,255,.06)}
+
+/* voice waveform */
+#voice-wrap{display:flex;align-items:center;gap:8px}
+.vbar{width:2px;border-radius:2px;background:var(--gold);transition:height .1s}
+.vbar.animate{animation:vbarAnim .7s ease-in-out infinite}
+.vbar:nth-child(2){animation-delay:.1s}
+.vbar:nth-child(3){animation-delay:.18s}
+.vbar:nth-child(4){animation-delay:.06s}
+.vbar:nth-child(5){animation-delay:.24s}
+@keyframes vbarAnim{0%,100%{height:3px;opacity:.4}50%{height:14px;opacity:1}}
+#voice-state{color:var(--gold);font-size:9px;letter-spacing:.12em}
+.hud-pill{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);border-radius:4px;padding:3px 8px;font-size:9px}
+.hud-pill.active{border-color:var(--gold);color:var(--gold)}
+#hud-gesture{min-width:60px}
+#btn-mute{background:none;border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:3px 8px;font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(241,245,249,.5);cursor:pointer;letter-spacing:.1em;transition:all .2s}
+#btn-mute:hover{border-color:var(--gold);color:var(--gold)}
+#btn-mute.muted{color:#ef4444;border-color:#ef4444}
+
+/* ═══ GESTURE TOAST ═══ */
+#toast{position:fixed;top:70px;left:50%;transform:translateX(-50%) translateY(-10px);z-index:300;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--gold);background:rgba(11,17,32,.9);border:1px solid rgba(245,158,11,.3);border-radius:6px;padding:7px 16px;letter-spacing:.12em;opacity:0;transition:opacity .2s,transform .2s;white-space:nowrap}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ═══ NAV HINT (bottom) ═══ */
+#nav-hint{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);z-index:200;font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(241,245,249,.3);letter-spacing:.15em;text-align:center;pointer-events:none}
+
+/* ═══ NAV DOTS ═══ */
+#nav-dots{position:fixed;right:22px;top:50%;transform:translateY(-50%);z-index:200;display:flex;flex-direction:column;gap:10px}
+.ndot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);cursor:pointer;transition:all .3s}
+.ndot.active{background:var(--gold);box-shadow:0 0 10px var(--gold);transform:scale(1.5)}
+.ndot[data-color="pink"].active{background:var(--pink);box-shadow:0 0 10px var(--pink)}
+.ndot[data-color="green"].active{background:var(--green);box-shadow:0 0 10px var(--green)}
+.ndot[data-color="amber"].active{background:var(--amber);box-shadow:0 0 10px var(--amber)}
+.ndot[data-color="indigo"].active{background:var(--indigo);box-shadow:0 0 10px var(--indigo)}
+
+/* ═══ NAV ARROWS ═══ */
+.nav-arrow{position:fixed;top:50%;z-index:150;width:48px;height:80px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);color:rgba(255,255,255,.25);font-size:20px;cursor:pointer;transition:all .3s;pointer-events:auto}
+#arrow-prev{left:0;border-radius:0 8px 8px 0;transform:translateY(-50%)}
+#arrow-next{right:0;border-radius:8px 0 0 8px;transform:translateY(-50%)}
+.nav-arrow:hover,.nav-arrow.hov{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.3);color:var(--gold)}
+.nav-arrow.hidden{opacity:0;pointer-events:none}
+
+/* ═══ SECTIONS ═══ */
+#sections{position:fixed;top:48px;left:0;right:0;bottom:0;overflow:hidden}
+.track{display:flex;height:100%;transition:transform .65s cubic-bezier(.22,1,.36,1)}
+.section{min-width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:32px 80px 32px 32px;overflow:hidden;position:relative}
+
+/* ═══ SHARED COMPONENTS ═══ */
+.sec-label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.35em;text-transform:uppercase;opacity:.55;margin-bottom:8px}
+.sec-title{font-weight:800;font-size:clamp(26px,4vw,52px);line-height:1.05;letter-spacing:-.02em;margin-bottom:6px}
+.sec-sub{font-size:clamp(13px,1.2vw,16px);font-weight:300;color:var(--muted);line-height:1.6;max-width:560px;margin-bottom:28px}
+
+.card{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:16px;padding:22px 20px;transition:all .3s;position:relative;overflow:hidden;cursor:pointer}
+.card::after{content:'';position:absolute;inset:0;border-radius:16px;opacity:0;transition:opacity .3s}
+.card:hover,.card.hov{transform:translateY(-4px)}
+.card-tag{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;margin-bottom:8px;font-weight:500}
+.card-name{font-weight:700;font-size:17px;letter-spacing:-.01em;margin-bottom:5px}
+.card-line{font-size:12px;font-weight:300;color:var(--muted);line-height:1.5;margin-bottom:12px}
+.card-metric{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;opacity:.7}
+
+/* sector-specific card glow */
+.card.pink:hover,.card.pink.hov{border-color:rgba(236,72,153,.3);box-shadow:0 8px 40px rgba(236,72,153,.1)}
+.card.green:hover,.card.green.hov{border-color:rgba(16,185,129,.3);box-shadow:0 8px 40px rgba(16,185,129,.1)}
+.card.amber:hover,.card.amber.hov{border-color:rgba(245,158,11,.3);box-shadow:0 8px 40px rgba(245,158,11,.1)}
+.card.indigo:hover,.card.indigo.hov{border-color:rgba(99,102,241,.3);box-shadow:0 8px 40px rgba(99,102,241,.1)}
+.card.pink .card-tag{color:var(--pink)}
+.card.green .card-tag{color:var(--green)}
+.card.amber .card-tag{color:var(--amber)}
+.card.indigo .card-tag{color:var(--indigo)}
+.card.pink .card-metric{color:var(--pink)}
+.card.green .card-metric{color:var(--green)}
+.card.amber .card-metric{color:var(--amber)}
+.card.indigo .card-metric{color:var(--indigo)}
+
+/* ═══ HOME ═══ */
+#s0{flex-direction:column;text-align:center}
+.home-bg{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.blob{position:absolute;border-radius:50%;filter:blur(100px);pointer-events:none}
+.home-logo{font-weight:800;font-size:clamp(42px,7vw,88px);letter-spacing:-.03em;line-height:1}
+.home-logo span{color:var(--gold)}
+.home-eng{font-family:'JetBrains Mono',monospace;font-size:clamp(11px,1vw,13px);color:var(--gold);letter-spacing:.3em;margin:10px 0 18px;opacity:.7}
+.home-sub{font-size:clamp(14px,1.3vw,18px);font-weight:300;color:var(--muted);max-width:540px;line-height:1.7;margin:0 auto 36px}
+.sector-pills{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.spill{padding:11px 22px;border:1px solid rgba(255,255,255,.1);border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;transition:all .3s;letter-spacing:.02em;background:rgba(255,255,255,.03)}
+.spill.pink{color:var(--pink)} .spill.pink:hover,.spill.pink.hov{border-color:var(--pink);background:rgba(236,72,153,.08);box-shadow:0 0 20px rgba(236,72,153,.2)}
+.spill.green{color:var(--green)} .spill.green:hover,.spill.green.hov{border-color:var(--green);background:rgba(16,185,129,.08);box-shadow:0 0 20px rgba(16,185,129,.2)}
+.spill.amber{color:var(--amber)} .spill.amber:hover,.spill.amber.hov{border-color:var(--amber);background:rgba(245,158,11,.08);box-shadow:0 0 20px rgba(245,158,11,.2)}
+.spill.indigo{color:var(--indigo)} .spill.indigo:hover,.spill.indigo.hov{border-color:var(--indigo);background:rgba(99,102,241,.08);box-shadow:0 0 20px rgba(99,102,241,.2)}
+
+/* ═══ GRID LAYOUTS ═══ */
+.grid-2x2{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:680px;width:100%}
+.grid-1x2{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:680px;width:100%}
+.grid-1x3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:900px;width:100%}
+@media(max-width:700px){.grid-2x2,.grid-1x2,.grid-1x3{grid-template-columns:1fr}}
+
+/* ═══ STAT ROW ═══ */
+.stat-row{display:flex;gap:24px;margin-top:20px;flex-wrap:wrap}
+.stat{text-align:center}
+.stat-n{font-weight:800;font-size:22px;letter-spacing:-.02em}
+.stat-l{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:.12em;margin-top:2px}
+
+/* ═══ CONTACT ROW ═══ */
+.contact-row{display:flex;align-items:center;gap:18px;margin-top:24px;flex-wrap:wrap}
+.contact-email{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--gold);letter-spacing:.05em}
+.contact-type{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;padding:10px 16px;font-size:12px;font-weight:500;cursor:pointer;transition:all .3s}
+.contact-type:hover,.contact-type.hov{border-color:var(--gold);color:var(--gold);background:rgba(245,158,11,.06)}
+
+/* ═══ LEGEND ═══ */
+#legend{position:fixed;left:22px;bottom:22px;z-index:200;background:rgba(11,17,32,.95);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:18px;backdrop-filter:blur(16px);min-width:220px;transform:translateX(-280px);transition:transform .4s cubic-bezier(.16,1,.3,1)}
+#legend.open{transform:translateX(0)}
+#leg-btn{position:fixed;left:22px;bottom:22px;z-index:201;background:rgba(11,17,32,.9);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 13px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:.12em;backdrop-filter:blur(10px);transition:all .25s}
+.lrow{display:flex;gap:10px;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.lrow:last-child{border-bottom:none}
+.lem{font-size:14px;width:20px;text-align:center}
+.lkey{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--gold);min-width:80px;letter-spacing:.08em}
+.lval{font-size:11px;color:rgba(241,245,249,.35)}
+
+/* ═══ MISC ═══ */
+.scanline{position:fixed;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(245,158,11,.08),transparent);z-index:500;pointer-events:none;animation:scanAnim 6s linear infinite}
+@keyframes scanAnim{from{transform:translateY(0)}to{transform:translateY(100vh)}}
+#easter{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:400;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:clamp(20px,3vw,40px);color:var(--gold);text-align:center;text-shadow:0 0 40px rgba(245,158,11,.6);animation:fadeUp .4s;pointer-events:none}
+@keyframes fadeUp{from{opacity:0;transform:translate(-50%,-60%)}to{opacity:1;transform:translate(-50%,-50%)}}
+@keyframes floatA{0%,100%{transform:translate(0,0)}50%{transform:translate(25px,-35px)}}
+@keyframes floatB{0%,100%{transform:translate(0,0)}50%{transform:translate(-20px,30px)}}
+</style>
+</head>
+<body>
+
+<div class="scanline"></div>
+
+<!-- ═══ INTRO ═══ -->
+<div id="intro">
+  <div class="star-field" id="stars"></div>
+  <div class="intro-mark">GESTURE INTERFACE</div>
+  <div class="intro-logo">GooD <span>Glitch</span></div>
+  <div class="intro-tag">Navigate with your hands. Navigate with your eyes.</div>
+  <div class="gesture-grid">
+    <div class="gpill"><span class="ge">☝️</span><span class="gk">POINT</span><div class="gv">cursor</div></div>
+    <div class="gpill"><span class="ge">🤏</span><span class="gk">PINCH</span><div class="gv">select</div></div>
+    <div class="gpill"><span class="ge">👊</span><span class="gk">FIST</span><div class="gv">go back</div></div>
+    <div class="gpill"><span class="ge">✋</span><span class="gk">PALM</span><div class="gv">pause voice</div></div>
+    <div class="gpill"><span class="ge">✌️</span><span class="gk">V SIGN</span><div class="gv">resume voice</div></div>
+    <div class="gpill"><span class="ge">👋</span><span class="gk">SWIPE</span><div class="gv">navigate</div></div>
+  </div>
+  <button class="start-btn" onclick="startExperience()">BEGIN</button>
+  <p class="cam-note">CAMERA PERMISSION REQUIRED · SERVE VIA localhost</p>
+</div>
+
+<!-- ═══ LOADING ═══ -->
+<div id="loading">
+  <div class="ld-logo">LOADING NEURAL INTERFACE</div>
+  <div class="ld-track"><div class="ld-fill" id="ld-fill"></div></div>
+  <div class="ld-msg" id="ld-msg">Starting...</div>
+</div>
+
+<!-- ═══ APP ═══ -->
+<div id="app">
+  <canvas id="cv"></canvas>
+
+  <!-- camera -->
+  <div id="cam-wrap">
+    <video id="cam-vid" autoplay muted playsinline></video>
+    <div class="cam-badge">● LIVE</div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-brand">GooD <span>Glitch</span></div>
+    <div id="voice-wrap">
+      <div class="vbar" id="vb1" style="height:4px"></div>
+      <div class="vbar" id="vb2" style="height:4px"></div>
+      <div class="vbar" id="vb3" style="height:4px"></div>
+      <div class="vbar" id="vb4" style="height:4px"></div>
+      <div class="vbar" id="vb5" style="height:4px"></div>
+      <span id="voice-state">READY</span>
+    </div>
+    <div class="hud-sep"></div>
+    <div class="hud-pill" id="hud-gesture">NO HAND</div>
+    <div class="hud-pill" id="hud-gaze">GAZE —</div>
+    <div class="hud-pill" id="hud-fps">— FPS</div>
+    <button id="btn-mute" onclick="toggleMute()">🔊 VOICE</button>
+  </div>
+
+  <!-- toast -->
+  <div id="toast"></div>
+
+  <!-- nav hint -->
+  <div id="nav-hint">POINT · PINCH TO SELECT &nbsp;|&nbsp; SWIPE TO NAVIGATE &nbsp;|&nbsp; ✋ PALM = PAUSE VOICE &nbsp;|&nbsp; ✌️ V = RESUME</div>
+
+  <!-- nav dots -->
+  <div id="nav-dots">
+    <div class="ndot active" data-color="gold" data-i="0"></div>
+    <div class="ndot" data-color="pink" data-i="1"></div>
+    <div class="ndot" data-color="green" data-i="2"></div>
+    <div class="ndot" data-color="amber" data-i="3"></div>
+    <div class="ndot" data-color="indigo" data-i="4"></div>
+  </div>
+
+  <!-- nav arrows -->
+  <div class="nav-arrow hidden hoverable" id="arrow-prev" data-action="nav:prev">‹</div>
+  <div class="nav-arrow hoverable" id="arrow-next" data-action="nav:next">›</div>
+
+  <!-- ═══ SECTIONS ═══ -->
+  <div id="sections">
+    <div class="track" id="track">
+
+      <!-- 0: HOME -->
+      <div class="section" id="s0">
+        <div class="home-bg">
+          <div class="blob" style="width:700px;height:700px;background:rgba(245,158,11,.05);top:-250px;left:-100px;animation:floatA 10s ease-in-out infinite"></div>
+          <div class="blob" style="width:500px;height:500px;background:rgba(99,102,241,.04);bottom:-200px;right:50px;animation:floatB 12s ease-in-out infinite"></div>
+        </div>
+        <div style="position:relative;z-index:1;max-width:700px">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:.35em;margin-bottom:16px;opacity:.65">GESTURE-CONTROLLED EXPERIENCE</div>
+          <div class="home-logo">the<span>Yaan</span><br>Studio</div>
+          <div class="home-eng">ENGINEERED TO SOLVE · DESIGNED TO FEEL</div>
+          <p class="home-sub">We apply behavioral psychology, neurolinguistic science, and intelligent design to build AI products that solve complex problems — through experiences that feel intuitive and extraordinary.</p>
+          <div class="sector-pills">
+            <div class="spill pink hoverable" data-action="nav:1">🏥 Healthcare</div>
+            <div class="spill green hoverable" data-action="nav:2">📚 Education</div>
+            <div class="spill amber hoverable" data-action="nav:3">🏛 Government</div>
+            <div class="spill indigo hoverable" data-action="nav:4">🤖 Robotics</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 1: HEALTHCARE -->
+      <div class="section" id="s1" style="flex-direction:column;align-items:flex-start">
+        <div style="max-width:900px;width:100%">
+          <div class="sec-label" style="color:var(--pink)">SECTOR 01 — HEALTHCARE</div>
+          <div class="sec-title" style="color:var(--text)">When Every Second Counts</div>
+          <p class="sec-sub">India has 0.7 physicians per 1,000 people. Those doctors spend 40% of their time on paperwork. We built four products to change that — from silicon to interface.</p>
+          <div class="grid-2x2">
+            <div class="card pink hoverable" data-action="speak:sentra">
+              <div class="card-tag">SENTRA</div>
+              <div class="card-name">Edge AI Monitoring</div>
+              <div class="card-line">Always-on monitoring for seniors, chronic illness patients, and neurodivergent individuals. Zero cloud dependency.</div>
+              <div class="card-metric">‹1s alert latency · 100% offline</div>
+            </div>
+            <div class="card pink hoverable" data-action="speak:drishti">
+              <div class="card-tag">DRISHTI</div>
+              <div class="card-name">Doctor's AI Companion</div>
+              <div class="card-line">In-ear guidance, ambient visual AI, and voice-first interface. 50% less documentation. Zero keyboard.</div>
+              <div class="card-metric">50% less docs · 0 keyboard touches</div>
+            </div>
+            <div class="card pink hoverable" data-action="speak:praxis">
+              <div class="card-tag">PRAXIS</div>
+              <div class="card-name">VR Medical Training</div>
+              <div class="card-line">AIIMS-level medical education through immersive VR and haptic simulation — accessible anywhere in India.</div>
+              <div class="card-metric">42% better diagnostic accuracy</div>
+            </div>
+            <div class="card pink hoverable" data-action="speak:kavach">
+              <div class="card-tag">KAVACH</div>
+              <div class="card-name">Hardware Security</div>
+              <div class="card-line">Patient data encryption built into silicon. AES-256 at the hardware layer — not bypassable in software.</div>
+              <div class="card-metric">AES-256 · 100% audit trail</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2: EDUCATION -->
+      <div class="section" id="s2" style="flex-direction:column;align-items:flex-start">
+        <div style="max-width:900px;width:100%">
+          <div class="sec-label" style="color:var(--green)">SECTOR 02 — EDUCATION</div>
+          <div class="sec-title" style="color:var(--text)">Solving Bloom's 2σ Problem</div>
+          <p class="sec-sub">In 1984, Benjamin Bloom proved one-on-one tutoring makes average students perform two standard deviations better. India has a 56% learning poverty rate. We're fixing the ratio.</p>
+          <div class="grid-1x2">
+            <div class="card green hoverable" data-action="speak:antaryaan">
+              <div class="card-tag">antarYaan</div>
+              <div class="card-name">The AI Tutor</div>
+              <div class="card-line">An AI mentor that adapts to each student's pace through a gamified universe of mastery — subjects as constellations, concepts as stars. 12 Indian languages.</div>
+              <div class="card-metric">2σ improvement · 1:1 tutor ratio · 12 languages</div>
+            </div>
+            <div class="card green hoverable" data-action="speak:pulse">
+              <div class="card-tag">PULSE</div>
+              <div class="card-name">Teacher's Sixth Sense</div>
+              <div class="card-line">Real-time comprehension mapping, emotional indicators, and learning gap detection for every student in a class of 40.</div>
+              <div class="card-metric">3× faster gap detection · ↑17% outcomes</div>
+            </div>
+          </div>
+          <div class="stat-row">
+            <div class="stat"><div class="stat-n" style="color:var(--green)">2σ</div><div class="stat-l">IMPROVEMENT TARGET</div></div>
+            <div class="stat"><div class="stat-n" style="color:var(--green)">56%</div><div class="stat-l">LEARNING POVERTY</div></div>
+            <div class="stat"><div class="stat-n" style="color:var(--green)">12</div><div class="stat-l">INDIAN LANGUAGES</div></div>
+            <div class="stat"><div class="stat-n" style="color:var(--green)">↑17%</div><div class="stat-l">LEARNING OUTCOMES</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3: GOVERNMENT -->
+      <div class="section" id="s3" style="flex-direction:column;align-items:flex-start">
+        <div style="max-width:900px;width:100%">
+          <div class="sec-label" style="color:var(--amber)">SECTOR 03 — GOVERNMENT</div>
+          <div class="sec-title" style="color:var(--text)">Making Digital India Accessible</div>
+          <p class="sec-sub">India has incredible digital infrastructure — Aadhaar, UPI, DigiLocker. But most departments still run on disconnected legacy systems. Citizens need 6 office visits for one clearance.</p>
+          <div class="grid-1x2">
+            <div class="card amber hoverable" data-action="speak:setu">
+              <div class="card-tag">SETU</div>
+              <div class="card-name">Integration Layer</div>
+              <div class="card-line">Connects siloed government databases from any era. Protocol adapters for 40+ legacy formats. Citizen-controlled consent. Single window clearance that actually works.</div>
+              <div class="card-metric">6→1 window · 10B+ monthly txns · 99.99% uptime</div>
+            </div>
+            <div class="card amber hoverable" data-action="speak:nagrik">
+              <div class="card-tag">NAGRIK</div>
+              <div class="card-name">Citizen Platform</div>
+              <div class="card-line">Government services that work like apps you actually use. Mobile-first, one-handed, 12 languages, voice navigation, works on 2G. For all 750M smartphone users.</div>
+              <div class="card-metric">750M users · 12 languages · 0 agents needed</div>
+            </div>
+          </div>
+          <div class="stat-row">
+            <div class="stat"><div class="stat-n" style="color:var(--amber)">6→1</div><div class="stat-l">OFFICE VISITS</div></div>
+            <div class="stat"><div class="stat-n" style="color:var(--amber)">750M</div><div class="stat-l">USERS REACHABLE</div></div>
+            <div class="stat"><div class="stat-n" style="color:var(--amber)">34%</div><div class="stat-l">DIGITAL GAP CLOSING</div></div>
+            <div class="stat"><div class="stat-n" style="color:var(--amber)">0</div><div class="stat-l">MIDDLEMEN NEEDED</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4: ROBOTICS + CONTACT -->
+      <div class="section" id="s4" style="flex-direction:column;align-items:flex-start">
+        <div style="max-width:960px;width:100%">
+          <div class="sec-label" style="color:var(--indigo)">SECTOR 04 — ROBOTICS & EDGE AI</div>
+          <div class="sec-title" style="color:var(--text)">Intelligence at the Edge</div>
+          <p class="sec-sub">Custom edge hardware. On-device AI. 24/7 autonomous operation. Built for Indian industrial conditions — dust, heat, humidity, connectivity gaps.</p>
+          <div class="grid-1x3">
+            <div class="card indigo hoverable" data-action="speak:yantra">
+              <div class="card-tag">YANTRA</div>
+              <div class="card-name">Quality Inspection</div>
+              <div class="card-line">Edge AI detects manufacturing defects invisible to the human eye in under 50ms.</div>
+              <div class="card-metric">99.2% accuracy · ‹50ms · 0 cloud</div>
+            </div>
+            <div class="card indigo hoverable" data-action="speak:vayubot">
+              <div class="card-tag">VAYUBOT</div>
+              <div class="card-name">Aerial Inspection</div>
+              <div class="card-line">Autonomous drones inspect bridges, powerlines, and solar farms — no humans at height.</div>
+              <div class="card-metric">10× faster · 100% autonomous</div>
+            </div>
+            <div class="card indigo hoverable" data-action="speak:krishi">
+              <div class="card-tag">KRISHI</div>
+              <div class="card-name">Precision Agriculture</div>
+              <div class="card-line">Centimeter-level accuracy for crop monitoring and targeted inputs. Works on 1-acre farms.</div>
+              <div class="card-metric">40% less pesticide · ↑25% yield</div>
+            </div>
+          </div>
+          <div style="margin-top:28px;padding-top:24px;border-top:1px solid var(--border)">
+            <div style="font-weight:700;font-size:18px;margin-bottom:6px">Let's build something that matters.</div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:16px">Healthcare, education, government, manufacturing — or if you want to join us.</div>
+            <div class="contact-row">
+              <div class="contact-email">hello@theyaan.studio</div>
+              <div class="contact-type hoverable" data-action="speak:institutions">For Institutions</div>
+              <div class="contact-type hoverable" data-action="speak:investors">For Investors</div>
+              <div class="contact-type hoverable" data-action="speak:team">Join the Team</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /track -->
+  </div><!-- /sections -->
+
+  <!-- legend -->
+  <div id="legend">
+    <div style="font-family:'Audiowide',sans-serif;font-size:10px;color:var(--gold);letter-spacing:.2em;margin-bottom:12px">GESTURE GUIDE</div>
+    <div class="lrow"><div class="lem">☝️</div><div class="lkey">POINT</div><div class="lval">move cursor</div></div>
+    <div class="lrow"><div class="lem">🤏</div><div class="lkey">PINCH</div><div class="lval">click / select</div></div>
+    <div class="lrow"><div class="lem">👋</div><div class="lkey">SWIPE</div><div class="lval">next / prev section</div></div>
+    <div class="lrow"><div class="lem">👊</div><div class="lkey">FIST</div><div class="lval">go back</div></div>
+    <div class="lrow"><div class="lem">✋</div><div class="lkey">PALM</div><div class="lval">pause voice</div></div>
+    <div class="lrow"><div class="lem">✌️</div><div class="lkey">V SIGN</div><div class="lval">resume voice</div></div>
+    <div class="lrow"><div class="lem">✌️</div><div class="lkey">V SIGN (hold)</div><div class="lval">easter egg</div></div>
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(241,245,249,.25)">← → ARROW KEYS ALSO WORK</div>
+  </div>
+  <button id="leg-btn" onclick="toggleLegend()">? GESTURES</button>
+
+</div><!-- /app -->
+
+<!-- mediapipe input (off-screen, not display:none) -->
+<video id="input-vid" style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0" autoplay muted playsinline></video>
+
+<!-- easter egg -->
+<div id="easter">✌️ PEACE<br><span style="font-size:.45em;letter-spacing:.3em;font-weight:400">GooD Glitch · The Gesture Interface</span></div>
+
+<script>
+// ════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════
+const S = {
+  section: 0,
+  cur: { x:-1, y:-1 },
+  wrist: { x:-1, y:-1 },   // landmark 0 — used for swipe
+  gaze: { x:-1, y:-1 },
+  gesture: 'NONE',
+  handVis: false,
+  faceVis: false,
+  legendOpen: false,
+  particles: [],
+  trail: [],
+  landmarks: null,          // latest hand landmarks — drawn in render loop only
+  wristHistory: [],         // wrist X history for swipe
+  pinchCD: 0, fistCD: 0, winkCD: 0, peaceCD: 0,
+  fps: 0, _fc: 0, _ft: 0,
+};
+
+const SECTION_NAMES = ['HOME','HEALTHCARE','EDUCATION','GOVERNMENT','ROBOTICS'];
+const SECTION_COLORS = ['#F59E0B','#EC4899','#10B981','#F59E0B','#6366F1'];
+
+// ════════════════════════════════════════════════
+// NARRATOR (Web Speech API)
+// ════════════════════════════════════════════════
+const Narrator = {
+  paused: false,
+  muted: false,
+  voice: null,
+  _seq: [],
+  _idx: 0,
+
+  SCRIPTS: {
+    intro: [
+      "Welcome to Good Glitch.",
+      "I'll guide you through everything with my voice.",
+      "Raise your index finger to move the cursor.",
+      "Pinch your thumb and index finger together to select anything.",
+      "To navigate sections, do a quick swipe with your hand — left to go forward, right to go back.",
+      "Show me an open palm to pause my voice.",
+      "Flash a V sign to bring me back.",
+      "Let's begin."
+    ],
+    0: [
+      "theYaan Studio.",
+      "Engineered to solve. Designed to feel.",
+      "We apply behavioral psychology, neurolinguistic science, and intelligent design",
+      "to build AI products that solve complex problems — through experiences that feel intuitive and extraordinary.",
+      "Point at a sector and pinch to explore it.",
+      "Or swipe your hand left to go to Healthcare."
+    ],
+    1: [
+      "Healthcare. When every second counts.",
+      "India has 0.7 physicians per 1,000 people, and those doctors spend 40 percent of their time on paperwork.",
+      "We've built four products to change that.",
+      "SENTRA: always-on edge AI monitoring for seniors and chronic illness patients — fully offline, sub-second alerts.",
+      "DRISHTI: the doctor's AI companion — in-ear guidance, ambient visual AI, 50 percent less documentation.",
+      "PRAXIS: VR and AR medical training that makes AIIMS-level education accessible anywhere.",
+      "KAVACH: patient data encrypted at the silicon layer — a physical guarantee, not a software policy.",
+      "Point at any product and pinch to hear more."
+    ],
+    2: [
+      "Education. Solving Bloom's Two Sigma Problem.",
+      "In 1984, Benjamin Bloom proved that one-on-one tutoring makes average students perform two standard deviations better.",
+      "India has a 56 percent learning poverty rate. One-on-one tutoring costs 50,000 rupees a month.",
+      "antarYaan is that tutor — an AI companion that adapts to each student's pace through a gamified universe of knowledge.",
+      "Available in 12 Indian languages.",
+      "PULSE gives teachers real-time perception of every student's comprehension, emotional state, and learning gaps.",
+      "A class of 40 becomes 40 individuals, each understood and supported."
+    ],
+    3: [
+      "Government. Making Digital India accessible to everyone.",
+      "India has incredible infrastructure — Aadhaar, UPI, DigiLocker.",
+      "But most departments still run on disconnected legacy systems. Citizens need 6 office visits for one clearance.",
+      "SETU is the integration layer that connects all of it — a single window clearance that actually works.",
+      "NAGRIK is mobile-first, one-handed, works on 2G, in 12 languages, with full voice navigation.",
+      "750 million smartphone users. Zero agents or middlemen needed."
+    ],
+    4: [
+      "Robotics and Edge AI. Intelligence at the edge.",
+      "YANTRA detects manufacturing defects at 99.2 percent accuracy in under 50 milliseconds — fully on-device, zero cloud.",
+      "VAYUBOT autonomously inspects bridges, powerlines, and solar farms from the air.",
+      "KRISHI brings precision agriculture to farms as small as one acre — 40 percent less pesticide, 25 percent more yield.",
+      "All running on custom edge hardware built for Indian industrial conditions.",
+      "If you'd like to work with us, our email is hello at theyaan dot studio.",
+      "Point at a contact type and pinch to learn more."
+    ],
+    sentra: ["SENTRA monitors patients at the edge. Wearable sensors feed on-device AI that learns individual baselines, detects anomalies, and alerts caregivers in under one second. No internet required."],
+    drishti: ["DRISHTI is the doctor's AI companion. It combines in-ear prompts, wearable display overlays, and ambient room intelligence — reviewing patient history, watching through intelligent cameras, and surfacing exactly what the doctor needs, before they ask."],
+    praxis: ["PRAXIS delivers AIIMS-level medical training through immersive VR and AR. Walk through a 3D heart. Practice procedures a hundred times. Encounter rare diseases without waiting years. With haptic feedback and collaborative multi-user scenarios."],
+    kavach: ["KAVACH is a hardware security module that encrypts patient data at the silicon level. Tamper-resistant design. AES-256 encryption that cannot be bypassed in software. DPDP and HIPAA compliant by architecture, not policy."],
+    antaryaan: ["antarYaan visualizes knowledge as a universe — subjects are constellations, concepts are stars. The AI mentor adapts in real time to each student's pace, fills knowledge gaps, and makes learning feel like an adventure. 12 Indian languages. Works offline."],
+    pulse: ["PULSE gives a teacher with 40 students real-time insight into every single one. Comprehension levels, emotional states, engagement patterns — all mapped live. Smart grouping suggestions, gap-specific exercises, and post-class analytics. Three times faster gap detection, 17 percent better outcomes."],
+    setu: ["SETU bridges government systems from any era. Protocol adapters for over 40 legacy data formats. Citizen-controlled consent at every step. Multi-department workflows with full transparency. Designed for 99.99 percent uptime."],
+    nagrik: ["NAGRIK is government services designed for one-handed use on crowded buses. Low-end Android phones, 2G connections. AI-powered search understands citizen intent in plain language. WhatsApp integration. Auto-filled forms from existing data. No follow-up visits needed."],
+    yantra: ["YANTRA puts computer vision on the factory floor. Custom edge hardware rated IP67 for dust and heat. Every frame processed in under 50 milliseconds. Defect taxonomy that classifies type, severity, and root cause patterns. Plugs into existing lines with minimal installation."],
+    vayubot: ["VAYUBOT flies predefined inspection routes autonomously. Multi-spectral imaging — thermal, visual, LiDAR — simultaneously. On-board AI flags anomalies during flight. No humans at height, no operational shutdowns. Ten times faster than manual inspection."],
+    krishi: ["KRISHI works on farms as small as one acre. Aerial and ground survey for soil-crop baselines. Continuous autonomous monitoring. Centimeter-level precision for targeted inputs. AI models trained on Indian crop varieties, soils, and climate. Vernacular-first farmer interface."],
+    institutions: ["For institutions — healthcare, education, government, or manufacturing. We come with the technology and the team. Deep domain expertise in each sector. Products shaped by the people who deploy them."],
+    investors: ["For investors — products with validated institutional demand across four sectors. Full-stack capability from custom silicon to interface. Long-term plays with measurable real-world impact."],
+    team: ["Join theYaan team. We're hiring engineers, designers, domain experts, and roboticists. Work on products that matter in industries that need it most. Interesting problems guaranteed. Reach us at hello at theyaan dot studio."],
+  },
+
+  _pickVoice() {
+    const vs = speechSynthesis.getVoices();
+    this.voice =
+      vs.find(v => v.name === 'Samantha') ||
+      vs.find(v => v.name.includes('Google US English')) ||
+      vs.find(v => v.lang === 'en-US' && v.name.toLowerCase().includes('female')) ||
+      vs.find(v => v.lang === 'en-US') ||
+      vs.find(v => v.lang.startsWith('en')) ||
+      null;
+  },
+
+  sayScript(key) {
+    const lines = this.SCRIPTS[key];
+    if (!lines || this.muted || this.paused) return;
+    speechSynthesis.cancel();
+    this._seq = [...lines];
+    this._idx = 0;
+    this._next();
+  },
+
+  _next() {
+    if (this._idx >= this._seq.length || this.muted || this.paused) {
+      setVoiceUI(false);
+      return;
+    }
+    const u = new SpeechSynthesisUtterance(this._seq[this._idx++]);
+    u.rate  = 0.93;
+    u.pitch = 1.02;
+    u.volume = 1.0;
+    if (this.voice) u.voice = this.voice;
+    u.onstart = () => setVoiceUI(true);
+    u.onend   = () => this._next();
+    u.onerror = () => this._next();
+    speechSynthesis.speak(u);
+  },
+
+  pause() {
+    this.paused = true;
+    speechSynthesis.cancel();
+    setVoiceUI(false, 'PAUSED');
+    showToast('✋  VOICE PAUSED');
+  },
+
+  resume(section) {
+    this.paused = false;
+    showToast('✌️  VOICE RESUMED');
+    this.sayScript(section ?? S.section);
+  },
+
+  onSection(n) {
+    if (this.paused || this.muted) return;
+    this.sayScript(n);
+  },
+
+  toggle() {
+    this.muted = !this.muted;
+    const btn = document.getElementById('btn-mute');
+    if (this.muted) {
+      speechSynthesis.cancel();
+      setVoiceUI(false,'MUTED');
+      btn.textContent = '🔇 VOICE';
+      btn.classList.add('muted');
+    } else {
+      btn.textContent = '🔊 VOICE';
+      btn.classList.remove('muted');
+      this.sayScript(S.section);
+    }
+  }
+};
+
+function toggleMute() { Narrator.toggle(); }
+
+speechSynthesis.onvoiceschanged = () => Narrator._pickVoice();
+Narrator._pickVoice();
+
+function setVoiceUI(speaking, label) {
+  const bars = document.querySelectorAll('.vbar');
+  const st = document.getElementById('voice-state');
+  bars.forEach(b => {
+    if (speaking) b.classList.add('animate');
+    else { b.classList.remove('animate'); b.style.height = '4px'; }
+  });
+  if (label) st.textContent = label;
+  else st.textContent = speaking ? 'SPEAKING' : (Narrator.paused ? 'PAUSED' : Narrator.muted ? 'MUTED' : 'READY');
+}
+
+// ════════════════════════════════════════════════
+// CANVAS
+// ════════════════════════════════════════════════
+const cv = document.getElementById('cv');
+const cx = cv.getContext('2d');
+function resize() { cv.width = window.innerWidth; cv.height = window.innerHeight; }
+window.addEventListener('resize', resize);
+resize();
+
+// ════════════════════════════════════════════════
+// PARTICLES
+// ════════════════════════════════════════════════
+function mkP(x,y,col) {
+  return { x,y,col,
+    vx:(Math.random()-.5)*3,
+    vy:(Math.random()-.5)*3-1.5,
+    life:1,
+    decay:.025+Math.random()*.04,
+    r:1.5+Math.random()*3
+  };
+}
+function spawn(x,y,n=3,col='#F59E0B') {
+  for(let i=0;i<n;i++) S.particles.push(mkP(x,y,col));
+}
+function burst(x,y,n=50) {
+  for(let i=0;i<n;i++){
+    const a=(i/n)*Math.PI*2,sp=2+Math.random()*5;
+    const p=mkP(x,y,`hsl(${i*(360/n)},100%,65%)`);
+    p.vx=Math.cos(a)*sp; p.vy=Math.sin(a)*sp;
+    S.particles.push(p);
+  }
+}
+
+// ════════════════════════════════════════════════
+// GESTURE DETECTION
+// ════════════════════════════════════════════════
+function d2(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
+function up(lm,t,p){ return lm[t].y < lm[p].y; }
+
+function detect(lm) {
+  if(!lm||!lm.length) return 'NONE';
+  const idx=up(lm,8,6), mid=up(lm,12,10), rng=up(lm,16,14), pky=up(lm,20,18);
+  const hand=d2(lm[0],lm[9]);
+  const pinch=d2(lm[4],lm[8])/hand;
+  if(pinch<0.28) return 'PINCH';
+  if(idx&&mid&&rng&&pky) return 'PALM';
+  if(idx&&mid&&!rng&&!pky) return 'PEACE';
+  if(idx&&!mid&&!rng&&!pky) return 'POINT';
+  if(!idx&&!mid&&!rng&&!pky) return 'FIST';
+  return 'NONE';
+}
+
+// ════════════════════════════════════════════════
+// SKELETON DRAW
+// ════════════════════════════════════════════════
+const BONES = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+
+function drawSkeleton(lm, accentCol) {
+  const W=cv.width,H=cv.height;
+  const pt=i=>[(1-lm[i].x)*W, lm[i].y*H];
+  cx.save();
+  cx.globalAlpha=.35;
+  cx.strokeStyle=accentCol||'#F59E0B';
+  cx.lineWidth=1;
+  cx.shadowBlur=4; cx.shadowColor=accentCol||'#F59E0B';
+  for(const[a,b]of BONES){
+    const[ax,ay]=pt(a),[bx,by]=pt(b);
+    cx.beginPath();cx.moveTo(ax,ay);cx.lineTo(bx,by);cx.stroke();
+  }
+  // joints
+  for(let i=0;i<21;i++){
+    const[x,y]=pt(i);
+    cx.fillStyle=i===8?'#EC4899':accentCol||'#F59E0B';
+    cx.globalAlpha=i===8?.9:.5;
+    cx.shadowColor=i===8?'#EC4899':accentCol||'#F59E0B';
+    cx.beginPath();cx.arc(x,y,i===8?4:2,0,Math.PI*2);cx.fill();
+  }
+  cx.restore();
+}
+
+// ════════════════════════════════════════════════
+// GAZE
+// ════════════════════════════════════════════════
+function processGaze(lm) {
+  if(!lm||lm.length<478){S.faceVis=false;return;}
+  S.faceVis=true;
+  const ri=lm[468],li=lm[473];
+  if(ri&&li){S.gaze.x=1-(ri.x+li.x)/2;S.gaze.y=(ri.y+li.y)/2;}
+  // wink
+  const rt=lm[159],rb=lm[145],ro=lm[33],ri2=lm[133];
+  if(rt&&rb&&ro&&ri2&&S.winkCD<=0){
+    const asp=Math.abs(rt.y-rb.y)/Math.max(.001,Math.abs(ro.x-ri2.x));
+    if(asp<0.12){
+      showToast('😉  WINK');
+      doClick(S.cur.x*cv.width,S.cur.y*cv.height);
+      S.winkCD=60;
+    }
+  }
+  document.getElementById('hud-gaze').textContent='GAZE ✓';
+}
+
+// ════════════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════════════
+function navTo(n) {
+  if(n<0||n>4||n===S.section) return;
+  S.section=n;
+  document.getElementById('track').style.transform=`translateX(-${n*100}%)`;
+  document.querySelectorAll('.ndot').forEach((d,i)=>d.classList.toggle('active',i===n));
+  document.getElementById('hud').style.setProperty('border-bottom-color',SECTION_COLORS[n]+'33');
+  // arrows
+  document.getElementById('arrow-prev').classList.toggle('hidden',n===0);
+  document.getElementById('arrow-next').classList.toggle('hidden',n===4);
+  // burst
+  for(let k=0;k<18;k++) spawn(Math.random()*cv.width,Math.random()*cv.height,1,SECTION_COLORS[n]);
+  // narrate
+  Narrator.onSection(n);
+}
+
+// ════════════════════════════════════════════════
+// UI INTERACTION
+// ════════════════════════════════════════════════
+let lastHov=null;
+function updateHover(sx,sy) {
+  if(sx<0||sy<0) return;
+  const els=document.elementsFromPoint(sx,sy);
+  const h=els.find(e=>e.classList.contains('hoverable'));
+  if(h!==lastHov){
+    if(lastHov) lastHov.classList.remove('hov');
+    if(h) h.classList.add('hov');
+    lastHov=h;
+  }
+}
+
+function doClick(sx,sy) {
+  if(sx<0||sy<0) return;
+  const els=document.elementsFromPoint(sx,sy);
+  const h=els.find(e=>e.classList.contains('hoverable'));
+  if(!h) return;
+  const a=h.dataset.action;
+  if(a) handleAction(a);
+  spawn(sx,sy,16,SECTION_COLORS[S.section]);
+  h.classList.add('hov');
+  setTimeout(()=>h.classList.remove('hov'),300);
+}
+
+function handleAction(a) {
+  const[t,v]=a.split(':');
+  if(t==='nav'){
+    if(v==='prev') navTo(S.section-1);
+    else if(v==='next') navTo(S.section+1);
+    else navTo(parseInt(v));
+  } else if(t==='speak') {
+    Narrator.sayScript(v);
+    showToast('🔊  '+v.toUpperCase());
+  }
+}
+
+// ════════════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════════════
+let _toastT;
+function showToast(txt) {
+  const el=document.getElementById('toast');
+  el.textContent=txt; el.classList.add('show');
+  clearTimeout(_toastT);
+  _toastT=setTimeout(()=>el.classList.remove('show'),1800);
+}
+
+function toggleLegend(){
+  S.legendOpen=!S.legendOpen;
+  document.getElementById('legend').classList.toggle('open',S.legendOpen);
+}
+
+// ════════════════════════════════════════════════
+// SWIPE — wrist-based (stable), called from render loop
+// ════════════════════════════════════════════════
+let _swipeCD=0;
+function checkSwipe() {
+  if(_swipeCD>0){_swipeCD--;return;}
+  const h=S.wristHistory;
+  if(h.length<8) return;
+  const old=h[0], now=h[h.length-1];
+  const dt=now.t-old.t;
+  if(dt<80||dt>600) return;          // must happen within 80–600ms
+  const dx=now.x-old.x;
+  if(Math.abs(dx)<0.18) return;      // min travel 18% of screen width
+  if(dx<0) navTo(Math.min(4,S.section+1));   // swipe left → next
+  else      navTo(Math.max(0,S.section-1));  // swipe right → prev
+  S.wristHistory=[];
+  _swipeCD=90;
+}
+
+// ════════════════════════════════════════════════
+// RENDER LOOP
+// ════════════════════════════════════════════════
+let _lt=0;
+function render(ts){
+  const dt=ts-_lt;_lt=ts;
+  S._ft+=dt;S._fc++;
+  if(S._ft>1000){S.fps=S._fc;S._fc=0;S._ft=0;document.getElementById('hud-fps').textContent=S.fps+' FPS';}
+
+  cx.clearRect(0,0,cv.width,cv.height);
+
+  // skeleton drawn HERE (single place, after clearRect)
+  if(S.landmarks) drawSkeleton(S.landmarks, SECTION_COLORS[S.section]);
+
+  // cooldowns
+  if(S.pinchCD>0)S.pinchCD--;
+  if(S.fistCD>0)S.fistCD--;
+  if(S.winkCD>0)S.winkCD--;
+  if(S.peaceCD>0)S.peaceCD--;
+
+  // gaze spotlight
+  if(S.faceVis&&S.gaze.x>=0){
+    const gx=S.gaze.x*cv.width,gy=S.gaze.y*cv.height;
+    const g=cx.createRadialGradient(gx,gy,0,gx,gy,250);
+    g.addColorStop(0,'rgba(99,102,241,.07)');
+    g.addColorStop(1,'rgba(0,0,0,0)');
+    cx.fillStyle=g;cx.fillRect(0,0,cv.width,cv.height);
+    cx.save();cx.globalAlpha=.18;cx.strokeStyle='#6366F1';
+    cx.lineWidth=1;cx.shadowBlur=6;cx.shadowColor='#6366F1';
+    cx.beginPath();cx.arc(gx,gy,12,0,Math.PI*2);cx.stroke();cx.restore();
+  }
+
+  // particles
+  S.particles=S.particles.filter(p=>p.life>0);
+  for(const p of S.particles){
+    p.x+=p.vx;p.y+=p.vy;p.vy+=.07;p.life-=p.decay;
+    cx.save();cx.globalAlpha=p.life;cx.fillStyle=p.col;
+    cx.shadowBlur=8;cx.shadowColor=p.col;
+    cx.beginPath();cx.arc(p.x,p.y,p.r*p.life,0,Math.PI*2);cx.fill();cx.restore();
+  }
+
+  // hand
+  if(S.handVis&&S.cur.x>=0){
+    const sx=S.cur.x*cv.width,sy=S.cur.y*cv.height;
+    const col=SECTION_COLORS[S.section];
+
+    // trail
+    S.trail.push({x:sx,y:sy});
+    if(S.trail.length>22)S.trail.shift();
+    for(let i=1;i<S.trail.length;i++){
+      const a=i/S.trail.length;
+      cx.save();cx.globalAlpha=a*.3;cx.strokeStyle=col;cx.lineWidth=1.5*a;
+      cx.shadowBlur=5;cx.shadowColor=col;
+      cx.beginPath();cx.moveTo(S.trail[i-1].x,S.trail[i-1].y);cx.lineTo(S.trail[i].x,S.trail[i].y);cx.stroke();cx.restore();
+    }
+
+    // cursor glow
+    const G=cx.createRadialGradient(sx,sy,0,sx,sy,80);
+    G.addColorStop(0,col+'28');G.addColorStop(1,'rgba(0,0,0,0)');
+    cx.fillStyle=G;cx.fillRect(sx-80,sy-80,160,160);
+
+    // cursor ring
+    const ringR=S.gesture==='PINCH'?8:S.gesture==='PALM'?22:16;
+    cx.save();
+    cx.strokeStyle=col;cx.lineWidth=S.gesture==='PINCH'?2:1.5;
+    cx.globalAlpha=.9;cx.shadowBlur=18;cx.shadowColor=col;
+    cx.beginPath();cx.arc(sx,sy,ringR,0,Math.PI*2);cx.stroke();
+    cx.fillStyle=col;cx.globalAlpha=1;cx.shadowBlur=10;
+    cx.beginPath();cx.arc(sx,sy,2.5,0,Math.PI*2);cx.fill();
+    cx.restore();
+
+    // spawn trail particles on point/pinch
+    if((S.gesture==='POINT'||S.gesture==='PINCH')&&Math.random()<.35)
+      spawn(sx,sy,1,S.gesture==='PINCH'?'#EC4899':col);
+
+    // hover
+    updateHover(sx,sy);
+
+    // PINCH → click
+    if(S.gesture==='PINCH'&&S.pinchCD<=0){
+      doClick(sx,sy);
+      spawn(sx,sy,18,'#EC4899');
+      S.pinchCD=50;
+    }
+
+    // PALM → pause voice
+    if(S.gesture==='PALM'&&!Narrator.paused&&S.pinchCD<=0){
+      Narrator.pause();
+      S.pinchCD=30; // reuse cd to prevent spam
+    }
+
+    // PEACE → resume / easter egg
+    if(S.gesture==='PEACE'){
+      if(Narrator.paused&&S.peaceCD<=0){
+        Narrator.resume(S.section);
+        S.peaceCD=60;
+      }
+      if(S.peaceCD<=0){
+        S.peaceCD=180;
+        const ee=document.getElementById('easter');
+        ee.style.display='block';
+        setTimeout(()=>ee.style.display='none',3000);
+        burst(sx,sy,60);
+      }
+    }
+
+    // FIST → go back
+    if(S.gesture==='FIST'&&S.fistCD<=0){
+      navTo(Math.max(0,S.section-1));
+      S.fistCD=70;
+      showToast('👊  BACK');
+    }
+
+    // swipe tracking (wrist-based)
+    checkSwipe();
+
+  } else {
+    S.trail=[];
+    if(lastHov){lastHov.classList.remove('hov');lastHov=null;}
+  }
+
+  requestAnimationFrame(render);
+}
+requestAnimationFrame(render);
+
+// ════════════════════════════════════════════════
+// MEDIAPIPE
+// ════════════════════════════════════════════════
+function setLoad(pct,msg){
+  document.getElementById('ld-fill').style.width=pct+'%';
+  document.getElementById('ld-msg').textContent=msg;
+}
+
+async function initMediaPipe(){
+  const vid=document.getElementById('input-vid');
+  setLoad(10,'Requesting camera...');
+
+  // ── 1. Camera stream ──
+  let stream;
+  try {
+    stream=await navigator.mediaDevices.getUserMedia({video:{width:640,height:480,facingMode:'user'},audio:false});
+  } catch(e){
+    setLoad(0,'⚠ Camera denied — allow camera access and reload.');
+    return;
+  }
+
+  vid.srcObject=stream;
+  document.getElementById('cam-vid').srcObject=stream;
+
+  // Wait for video to be playable (with fallback timeout)
+  await Promise.race([
+    new Promise(r=>{ if(vid.readyState>=2){r();}else{vid.oncanplay=r;} }),
+    new Promise(r=>setTimeout(r,3000))
+  ]);
+  try{ await vid.play(); }catch(_){}
+
+  setLoad(35,'Loading hand tracking...');
+
+  // ── 2. Hands ──
+  if(typeof Hands==='undefined'){
+    setLoad(0,'⚠ MediaPipe failed to load — check internet connection.');
+    return;
+  }
+
+  const hands=new Hands({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
+  hands.setOptions({maxNumHands:1,modelComplexity:1,minDetectionConfidence:.65,minTrackingConfidence:.5});
+  hands.onResults(res=>{
+    if(res.multiHandLandmarks&&res.multiHandLandmarks.length>0){
+      const lm=res.multiHandLandmarks[0];
+      S.handVis=true;
+      S.landmarks=lm;
+      S.cur.x=1-lm[8].x; S.cur.y=lm[8].y;
+      S.wrist.x=1-lm[0].x; S.wrist.y=lm[0].y;
+      const g=detect(lm);
+      if(g!==S.gesture){
+        S.gesture=g;
+        document.getElementById('hud-gesture').textContent=g==='NONE'?'—':g;
+        document.getElementById('hud-gesture').className='hud-pill'+(g!=='NONE'?' active':'');
+      }
+      // push wrist for swipe — time-stamped
+      S.wristHistory.push({x:S.wrist.x, t:Date.now()});
+      if(S.wristHistory.length>20) S.wristHistory.shift();
+    } else {
+      S.handVis=false; S.gesture='NONE'; S.landmarks=null;
+      S.wristHistory=[];
+      document.getElementById('hud-gesture').textContent='NO HAND';
+      document.getElementById('hud-gesture').className='hud-pill';
+    }
+  });
+
+  setLoad(65,'Loading face mesh...');
+
+  // ── 3. FaceMesh ──
+  let face=null;
+  if(typeof FaceMesh!=='undefined'){
+    face=new FaceMesh({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
+    face.setOptions({maxNumFaces:1,refineLandmarks:true,minDetectionConfidence:.5,minTrackingConfidence:.5});
+    face.onResults(res=>{
+      if(res.multiFaceLandmarks&&res.multiFaceLandmarks.length>0){
+        processGaze(res.multiFaceLandmarks[0]);
+      } else {
+        S.faceVis=false;
+        document.getElementById('hud-gaze').textContent='GAZE —';
+      }
+    });
+  }
+
+  setLoad(90,'Starting...');
+
+  // ── 4. Frame loop — processing guard prevents frame queue pileup ──
+  let _fc=0, _busy=false;
+  (async function frameLoop(){
+    if(!_busy && vid.readyState>=2 && !vid.paused){
+      _busy=true;
+      _fc++;
+      try{ await hands.send({image:vid}); }catch(_){}
+      if(face&&_fc%3===0){ try{ await face.send({image:vid}); }catch(_){} }
+      _busy=false;
+    }
+    requestAnimationFrame(frameLoop);
+  })();
+
+  setLoad(100,'Ready!');
+  setTimeout(launchApp, 300);
+}
+
+function launchApp(){
+  document.getElementById('loading').style.display='none';
+  const app=document.getElementById('app');
+  app.style.display='block';
+  requestAnimationFrame(()=>app.style.opacity='1');
+  // start narrator intro after brief pause
+  setTimeout(()=>Narrator.sayScript('intro'),1200);
+}
+
+async function startExperience(){
+  const intro=document.getElementById('intro');
+  intro.style.opacity='0';
+  setTimeout(()=>{
+    intro.style.display='none';
+    document.getElementById('loading').style.display='flex';
+  },550);
+  await initMediaPipe();
+}
+
+// ════════════════════════════════════════════════
+// STAR FIELD (intro)
+// ════════════════════════════════════════════════
+(function(){
+  const sf=document.getElementById('stars');
+  for(let i=0;i<140;i++){
+    const s=document.createElement('div');
+    s.className='star';
+    const sz=Math.random()*2+.5;
+    s.style.cssText=`width:${sz}px;height:${sz}px;top:${Math.random()*100}%;left:${Math.random()*100}%;--d:${2+Math.random()*4}s;--del:${Math.random()*4}s;--op:${.4+Math.random()*.6}`;
+    sf.appendChild(s);
+  }
+})();
+
+// ════════════════════════════════════════════════
+// KEYBOARD FALLBACK
+// ════════════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key==='ArrowDown') navTo(Math.min(4,S.section+1));
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp') navTo(Math.max(0,S.section-1));
+  if(e.key==='h'||e.key==='H') toggleLegend();
+  if(e.key==='m'||e.key==='M') toggleMute();
+  if(e.key>='1'&&e.key<='5') navTo(parseInt(e.key)-1);
+  if(e.key===' '){
+    if(Narrator.paused) Narrator.resume(S.section);
+    else Narrator.pause();
+  }
+});
+
+document.querySelectorAll('.ndot').forEach((d,i)=>d.addEventListener('click',()=>navTo(i)));
+document.getElementById('arrow-prev').addEventListener('click',()=>navTo(S.section-1));
+document.getElementById('arrow-next').addEventListener('click',()=>navTo(S.section+1));
+</script>
+</body>
+</html>
