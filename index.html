@@ -405,7 +405,7 @@ body.hand-on{cursor:none}
 </div>
 
 <!-- mediapipe input — OUTSIDE #app so display:none on #app doesn't block frames -->
-<video id="mp-vid" style="position:fixed;right:-4px;bottom:-4px;width:4px;height:4px;opacity:.01" autoplay muted playsinline></video>
+<video id="mp-vid" style="position:fixed;left:-660px;top:0;width:640px;height:480px" autoplay muted playsinline></video>
 
 <div id="easter">✌️ PEACE MODE<br><span style="font-size:.45em;letter-spacing:.3em;font-weight:400">GooD Glitch · The Gesture Interface</span></div>
 
@@ -584,9 +584,9 @@ function detect(lm){
   if(!lm||!lm.length) return 'NONE';
   const idx=ext(lm,8,6), mid=ext(lm,12,10), rng=ext(lm,16,14), pky=ext(lm,20,18);
   const handSz=d2(lm[0],lm[9]);
-  // strict pinch: thumb-tip to index-tip < 12% of hand size, AND middle/ring/pinky curled
+  // pinch: thumb-tip to index-tip < 18% of hand size
   const pinchRatio=d2(lm[4],lm[8])/Math.max(handSz,.001);
-  if(pinchRatio<0.12 && !mid && !rng) return 'PINCH';
+  if(pinchRatio<0.18) return 'PINCH';
   if(!idx&&!mid&&!rng&&!pky) return 'FIST';
   if(idx&&mid&&rng&&pky) return 'PALM';
   if(idx&&mid&&!rng&&!pky) return 'PEACE';
@@ -864,11 +864,11 @@ async function initMediaPipe(){
       S.cur.x=1-lm[8].x; S.cur.y=lm[8].y;
       // wrist for swipe
       S.wristHist.push({x:1-lm[0].x, t:Date.now()});
-      // stability buffer — require 3/4 frames to agree
+      // stability buffer — require 2/3 frames to agree
       const raw=detect(lm);
       S.gestureBuf.push(raw);
-      if(S.gestureBuf.length>4) S.gestureBuf.shift();
-      const stable=S.gestureBuf.filter(g=>g===raw).length>=3?raw:S.gesture;
+      if(S.gestureBuf.length>3) S.gestureBuf.shift();
+      const stable=S.gestureBuf.filter(g=>g===raw).length>=2?raw:S.gesture;
       if(stable!==S.gesture){
         S.gesture=stable;
         const el=document.getElementById('hud-gesture');
@@ -879,6 +879,7 @@ async function initMediaPipe(){
       S.handVis=false; S.gesture='NONE'; S.landmarks=null; S.gestureBuf=[];
       document.getElementById('hud-gesture').textContent='NO HAND';
       document.getElementById('hud-gesture').className='hud-pill';
+      document.body.classList.remove('hand-on');
     }
   });
 
