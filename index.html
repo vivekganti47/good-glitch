@@ -846,9 +846,13 @@ async function initMediaPipe(){
   try{await preview.play();}catch(_){}
 
   setLoad(25,'Waiting for vision library...');
-  if(!window.GestureRecognizer){
-    await new Promise(r=>document.addEventListener('mp-ready',r,{once:true}));
-  }
+  // poll + event — handles race where mp-ready fires before we listen
+  await new Promise(resolve=>{
+    if(window.GestureRecognizer){ resolve(); return; }
+    const iv=setInterval(()=>{ if(window.GestureRecognizer){ clearInterval(iv); resolve(); } },100);
+    document.addEventListener('mp-ready',()=>{ clearInterval(iv); resolve(); },{once:true});
+    setTimeout(()=>{ clearInterval(iv); resolve(); },12000); // 12s hard timeout
+  });
 
   setLoad(45,'Loading gesture model...');
   const WASM='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/wasm';
@@ -881,17 +885,19 @@ async function initMediaPipe(){
   setLoad(95,'Starting...');
 
   // ── Synchronous frame loop — no await, no stalling, immortal ──
-  let lastT=-1,fc=0;
+  // NOTE: vid.currentTime can stay 0 on live streams in Chrome — never use it as a gate
+  let lastTs=0,fc=0;
   function frameLoop(){
     requestAnimationFrame(frameLoop);               // always first
     if(vid.readyState<2||vid.paused) return;
-    if(vid.currentTime===lastT) return;             // skip duplicate frames
-    lastT=vid.currentTime; fc++;
-    const ts=Date.now(); // Tasks API needs Unix-epoch ms, not page-relative ms
+    const ts=Date.now();
+    if(ts-lastTs<30) return;                        // ~30fps max via wall-clock, never stalls
+    lastTs=ts; fc++;
 
     // ── Hand + gesture (every frame) ──
     try{
       const res=gr.recognizeForVideo(vid,ts);
+      document.getElementById('hud-fps').textContent=fc+' frames';
       const hasHand=res.landmarks&&res.landmarks.length>0;
       document.body.classList.toggle('hand-on',hasHand);
       if(hasHand){
@@ -913,7 +919,9 @@ async function initMediaPipe(){
         document.getElementById('hud-gesture').textContent='NO HAND';
         document.getElementById('hud-gesture').className='hud-pill';
       }
-    }catch(_){}
+    }catch(e){
+      document.getElementById('hud-fps').textContent='ERR:'+e.message.slice(0,20);
+    }
 
     // ── Face / gaze (every 3rd frame) ──
     if(fl&&fc%3===0){
