@@ -5,8 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GooD Glitch</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Audiowide&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+<!-- MediaPipe Tasks Vision — newer synchronous API, no Promise-stalling -->
+<script type="module">
+import{GestureRecognizer,FaceLandmarker,FilesetResolver}
+  from'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/vision_bundle.mjs';
+Object.assign(window,{GestureRecognizer,FaceLandmarker,FilesetResolver});
+document.dispatchEvent(new Event('mp-ready'));
+</script>
 <style>
 :root{
   --bg:#0B1120;--gold:#F59E0B;--pink:#EC4899;--green:#10B981;
@@ -574,25 +579,7 @@ function burst(x,y,n=50){
   }
 }
 
-// ══════════════════════════════════════════
-// GESTURE DETECTION
-// ══════════════════════════════════════════
-function d2(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
-function ext(lm,tip,pip){ return lm[tip].y < lm[pip].y; }
-
-function detect(lm){
-  if(!lm||!lm.length) return 'NONE';
-  const idx=ext(lm,8,6), mid=ext(lm,12,10), rng=ext(lm,16,14), pky=ext(lm,20,18);
-  const handSz=d2(lm[0],lm[9]);
-  // pinch: thumb-tip to index-tip < 18% of hand size
-  const pinchRatio=d2(lm[4],lm[8])/Math.max(handSz,.001);
-  if(pinchRatio<0.18) return 'PINCH';
-  if(!idx&&!mid&&!rng&&!pky) return 'FIST';
-  if(idx&&mid&&rng&&pky) return 'PALM';
-  if(idx&&mid&&!rng&&!pky) return 'PEACE';
-  if(idx&&!mid&&!rng&&!pky) return 'POINT';
-  return 'NONE';
-}
+// gesture detection now handled by Tasks API GestureRecognizer (see initMediaPipe)
 
 // ══════════════════════════════════════════
 // SKELETON
@@ -823,8 +810,22 @@ async function ensureVoices(){
   });
 }
 
+// Gesture name map: Tasks API → our names
+const GMAP={Pointing_Up:'POINT',Open_Palm:'PALM',Victory:'PEACE',Closed_Fist:'FIST',None:'NONE',Thumb_Up:'NONE',Thumb_Down:'NONE',ILoveYou:'NONE'};
+
+function updateGestureState(raw){
+  S.gestureBuf.push(raw);
+  if(S.gestureBuf.length>3) S.gestureBuf.shift();
+  const stable=S.gestureBuf.filter(g=>g===raw).length>=2?raw:S.gesture;
+  if(stable!==S.gesture){
+    S.gesture=stable;
+    const el=document.getElementById('hud-gesture');
+    el.textContent=stable==='NONE'?'—':stable;
+    el.className='hud-pill'+(stable!=='NONE'?' on':'');
+  }
+}
+
 async function initMediaPipe(){
-  // mp-vid is outside #app so display:none can't block it
   const vid=document.getElementById('mp-vid');
   const preview=document.getElementById('cam-vid');
   setLoad(10,'Requesting camera...');
@@ -833,77 +834,97 @@ async function initMediaPipe(){
   try{
     stream=await navigator.mediaDevices.getUserMedia({video:{width:640,height:480,facingMode:'user'},audio:false});
   }catch(e){
-    setLoad(0,'⚠ Camera denied — allow camera access and reload.');
+    setLoad(0,'⚠ Camera denied — allow camera and reload.');
     return;
   }
-
-  // feed same stream to both: mp-vid (for MediaPipe) and cam-vid (for preview)
-  vid.srcObject=stream;
-  preview.srcObject=stream;
-
+  vid.srcObject=stream; preview.srcObject=stream;
   await Promise.race([
-    new Promise(r=>{ if(vid.readyState>=2) r(); else{ vid.onloadedmetadata=()=>r(); vid.oncanplay=()=>r(); } }),
+    new Promise(r=>{ if(vid.readyState>=2)r(); else{vid.onloadedmetadata=r;vid.oncanplay=r;} }),
     new Promise(r=>setTimeout(r,5000))
   ]);
-  try{ await vid.play(); }catch(_){}
-  try{ await preview.play(); }catch(_){}
+  try{await vid.play();}catch(_){}
+  try{await preview.play();}catch(_){}
 
-  setLoad(35,'Loading hand tracking...');
-  if(typeof Hands==='undefined'){ setLoad(0,'⚠ MediaPipe failed to load. Check your internet connection.'); return; }
-
-  const hands=new Hands({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
-  hands.setOptions({maxNumHands:1,modelComplexity:1,minDetectionConfidence:.65,minTrackingConfidence:.5});
-  hands.onResults(res=>{
-    const hasHand=res.multiHandLandmarks&&res.multiHandLandmarks.length>0;
-    document.body.classList.toggle('hand-on',hasHand);
-    if(hasHand){
-      const lm=res.multiHandLandmarks[0];
-      S.handVis=true; S.landmarks=lm;
-      S.cur.x=1-lm[8].x; S.cur.y=lm[8].y;
-      // wrist for swipe
-      S.wristHist.push({x:1-lm[0].x, t:Date.now()});
-      // stability buffer — require 2/3 frames to agree
-      const raw=detect(lm);
-      S.gestureBuf.push(raw);
-      if(S.gestureBuf.length>3) S.gestureBuf.shift();
-      const stable=S.gestureBuf.filter(g=>g===raw).length>=2?raw:S.gesture;
-      if(stable!==S.gesture){
-        S.gesture=stable;
-        const el=document.getElementById('hud-gesture');
-        el.textContent=stable==='NONE'?'—':stable;
-        el.className='hud-pill'+(stable!=='NONE'?' on':'');
-      }
-    } else {
-      S.handVis=false; S.gesture='NONE'; S.landmarks=null; S.gestureBuf=[];
-      document.getElementById('hud-gesture').textContent='NO HAND';
-      document.getElementById('hud-gesture').className='hud-pill';
-      document.body.classList.remove('hand-on');
-    }
-  });
-
-  setLoad(65,'Loading face mesh...');
-  let face=null;
-  if(typeof FaceMesh!=='undefined'){
-    face=new FaceMesh({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
-    face.setOptions({maxNumFaces:1,refineLandmarks:true,minDetectionConfidence:.5,minTrackingConfidence:.5});
-    face.onResults(res=>{
-      if(res.multiFaceLandmarks&&res.multiFaceLandmarks.length>0) processGaze(res.multiFaceLandmarks[0]);
-      else{ S.faceVis=false; document.getElementById('hud-gaze').textContent='GAZE —'; }
-    });
+  setLoad(25,'Waiting for vision library...');
+  if(!window.GestureRecognizer){
+    await new Promise(r=>document.addEventListener('mp-ready',r,{once:true}));
   }
 
-  setLoad(90,'Starting...');
-  let _fc2=0, _busy=false, _busyTs=0;
-  (async function loop(){
-    requestAnimationFrame(loop);                          // always first — loop never dies
-    if(_busy && Date.now()-_busyTs>500){ _busy=false; }  // watchdog: unstick after 500ms
-    if(!_busy&&vid.readyState>=2&&!vid.paused){
-      _busy=true; _busyTs=Date.now(); _fc2++;
-      try{ await hands.send({image:vid}); }catch(_){}
-      if(face&&_fc2%3===0){ try{ await face.send({image:vid}); }catch(_){} }
-      _busy=false;
+  setLoad(45,'Loading gesture model...');
+  const WASM='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/wasm';
+  let vision,gr,fl=null;
+  try{
+    vision=await window.FilesetResolver.forVisionTasks(WASM);
+  }catch(e){ setLoad(0,'⚠ Vision WASM failed to load.'); return; }
+
+  try{
+    gr=await window.GestureRecognizer.createFromOptions(vision,{
+      baseOptions:{
+        modelAssetPath:'https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task',
+        delegate:'GPU'
+      },
+      runningMode:'VIDEO',numHands:1
+    });
+  }catch(e){ setLoad(0,'⚠ Gesture model failed: '+e.message); return; }
+
+  setLoad(75,'Loading face model...');
+  try{
+    fl=await window.FaceLandmarker.createFromOptions(vision,{
+      baseOptions:{
+        modelAssetPath:'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
+        delegate:'GPU'
+      },
+      runningMode:'VIDEO',numFaces:1,outputFaceLandmarks:true
+    });
+  }catch(e){ fl=null; } // face tracking optional
+
+  setLoad(95,'Starting...');
+
+  // ── Synchronous frame loop — no await, no stalling, immortal ──
+  let lastT=-1,fc=0;
+  function frameLoop(){
+    requestAnimationFrame(frameLoop);               // always first
+    if(vid.readyState<2||vid.paused) return;
+    if(vid.currentTime===lastT) return;             // skip duplicate frames
+    lastT=vid.currentTime; fc++;
+    const ts=performance.now();
+
+    // ── Hand + gesture (every frame) ──
+    try{
+      const res=gr.recognizeForVideo(vid,ts);
+      const hasHand=res.landmarks&&res.landmarks.length>0;
+      document.body.classList.toggle('hand-on',hasHand);
+      if(hasHand){
+        const lm=res.landmarks[0];
+        S.handVis=true; S.landmarks=lm;
+        S.cur.x=1-lm[8].x; S.cur.y=lm[8].y;
+        S.wristHist.push({x:1-lm[0].x,t:Date.now()});
+        // base gesture from built-in recognizer
+        let raw='NONE';
+        if(res.gestures&&res.gestures[0]&&res.gestures[0][0])
+          raw=GMAP[res.gestures[0][0].categoryName]||'NONE';
+        // override with PINCH if thumb-index distance is small
+        const hsz=Math.hypot(lm[0].x-lm[9].x,lm[0].y-lm[9].y);
+        if(Math.hypot(lm[4].x-lm[8].x,lm[4].y-lm[8].y)/Math.max(hsz,.001)<0.18) raw='PINCH';
+        updateGestureState(raw);
+      }else{
+        S.handVis=false; S.gesture='NONE'; S.landmarks=null; S.gestureBuf=[];
+        document.body.classList.remove('hand-on');
+        document.getElementById('hud-gesture').textContent='NO HAND';
+        document.getElementById('hud-gesture').className='hud-pill';
+      }
+    }catch(_){}
+
+    // ── Face / gaze (every 3rd frame) ──
+    if(fl&&fc%3===0){
+      try{
+        const fr=fl.detectForVideo(vid,ts);
+        if(fr.faceLandmarks&&fr.faceLandmarks.length>0) processGaze(fr.faceLandmarks[0]);
+        else{S.faceVis=false;document.getElementById('hud-gaze').textContent='GAZE —';}
+      }catch(_){}
     }
-  })();
+  }
+  frameLoop();
 
   setLoad(100,'Ready!');
   setTimeout(launchApp,300);
