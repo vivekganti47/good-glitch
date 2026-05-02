@@ -861,13 +861,42 @@ async function initMediaPipe(){
     vision=await window.FilesetResolver.forVisionTasks(WASM);
   }catch(e){ setLoad(0,'⚠ Vision WASM failed to load.'); return; }
 
+  // ── LIVE_STREAM mode: correct for live camera, results arrive via callback ──
+  function onGestureResult(res){
+    const hasHand=res.landmarks&&res.landmarks.length>0;
+    document.body.classList.toggle('hand-on',hasHand);
+    if(hasHand){
+      const lm=res.landmarks[0];
+      S.handVis=true; S.landmarks=lm;
+      S.cur.x=1-lm[8].x; S.cur.y=lm[8].y;
+      S.wristHist.push({x:1-lm[0].x,t:Date.now()});
+      let raw='NONE';
+      if(res.gestures&&res.gestures[0]&&res.gestures[0][0])
+        raw=GMAP[res.gestures[0][0].categoryName]||'NONE';
+      const hsz=Math.hypot(lm[0].x-lm[9].x,lm[0].y-lm[9].y);
+      if(Math.hypot(lm[4].x-lm[8].x,lm[4].y-lm[8].y)/Math.max(hsz,.001)<0.18) raw='PINCH';
+      updateGestureState(raw);
+    }else{
+      S.handVis=false; S.gesture='NONE'; S.landmarks=null; S.gestureBuf=[];
+      document.body.classList.remove('hand-on');
+      document.getElementById('hud-gesture').textContent='NO HAND';
+      document.getElementById('hud-gesture').className='hud-pill';
+    }
+  }
+
+  function onFaceResult(res){
+    if(res.faceLandmarks&&res.faceLandmarks.length>0) processGaze(res.faceLandmarks[0]);
+    else{ S.faceVis=false; document.getElementById('hud-gaze').textContent='GAZE —'; }
+  }
+
   try{
     gr=await window.GestureRecognizer.createFromOptions(vision,{
       baseOptions:{
         modelAssetPath:'https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task',
         delegate:'GPU'
       },
-      runningMode:'VIDEO',numHands:1
+      runningMode:'LIVE_STREAM', numHands:1,
+      resultCallback: onGestureResult
     });
   }catch(e){ setLoad(0,'⚠ Gesture model failed: '+e.message); return; }
 
@@ -878,59 +907,24 @@ async function initMediaPipe(){
         modelAssetPath:'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
         delegate:'GPU'
       },
-      runningMode:'VIDEO',numFaces:1,outputFaceLandmarks:true
+      runningMode:'LIVE_STREAM', numFaces:1, outputFaceLandmarks:true,
+      resultCallback: onFaceResult
     });
-  }catch(e){ fl=null; } // face tracking optional
+  }catch(e){ fl=null; }
 
   setLoad(95,'Starting...');
 
-  // ── Synchronous frame loop — no await, no stalling, immortal ──
-  // NOTE: vid.currentTime can stay 0 on live streams in Chrome — never use it as a gate
+  // ── Frame sender — just dispatches frames, callbacks handle results ──
   let lastTs=0,fc=0;
   function frameLoop(){
-    requestAnimationFrame(frameLoop);               // always first
+    requestAnimationFrame(frameLoop);
     if(vid.readyState<2||vid.paused) return;
     const ts=Date.now();
-    if(ts-lastTs<30) return;                        // ~30fps max via wall-clock, never stalls
+    if(ts-lastTs<33) return;   // ~30fps
     lastTs=ts; fc++;
-
-    // ── Hand + gesture (every frame) ──
-    try{
-      const res=gr.recognizeForVideo(vid,ts);
-      document.getElementById('hud-fps').textContent=fc+' frames';
-      const hasHand=res.landmarks&&res.landmarks.length>0;
-      document.body.classList.toggle('hand-on',hasHand);
-      if(hasHand){
-        const lm=res.landmarks[0];
-        S.handVis=true; S.landmarks=lm;
-        S.cur.x=1-lm[8].x; S.cur.y=lm[8].y;
-        S.wristHist.push({x:1-lm[0].x,t:Date.now()});
-        // base gesture from built-in recognizer
-        let raw='NONE';
-        if(res.gestures&&res.gestures[0]&&res.gestures[0][0])
-          raw=GMAP[res.gestures[0][0].categoryName]||'NONE';
-        // override with PINCH if thumb-index distance is small
-        const hsz=Math.hypot(lm[0].x-lm[9].x,lm[0].y-lm[9].y);
-        if(Math.hypot(lm[4].x-lm[8].x,lm[4].y-lm[8].y)/Math.max(hsz,.001)<0.18) raw='PINCH';
-        updateGestureState(raw);
-      }else{
-        S.handVis=false; S.gesture='NONE'; S.landmarks=null; S.gestureBuf=[];
-        document.body.classList.remove('hand-on');
-        document.getElementById('hud-gesture').textContent='NO HAND';
-        document.getElementById('hud-gesture').className='hud-pill';
-      }
-    }catch(e){
-      document.getElementById('hud-fps').textContent='ERR:'+e.message.slice(0,20);
-    }
-
-    // ── Face / gaze (every 3rd frame) ──
-    if(fl&&fc%3===0){
-      try{
-        const fr=fl.detectForVideo(vid,ts);
-        if(fr.faceLandmarks&&fr.faceLandmarks.length>0) processGaze(fr.faceLandmarks[0]);
-        else{S.faceVis=false;document.getElementById('hud-gaze').textContent='GAZE —';}
-      }catch(_){}
-    }
+    document.getElementById('hud-fps').textContent=fc+' frames';
+    try{ gr.recognizeAsync(vid,ts); }catch(_){}
+    if(fl&&fc%3===0){ try{ fl.detectAsync(vid,ts); }catch(_){} }
   }
   frameLoop();
 
