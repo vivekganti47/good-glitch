@@ -404,6 +404,9 @@ body.hand-on{cursor:none}
 
 </div>
 
+<!-- mediapipe input — OUTSIDE #app so display:none on #app doesn't block frames -->
+<video id="mp-vid" style="position:fixed;right:-4px;bottom:-4px;width:4px;height:4px;opacity:.01" autoplay muted playsinline></video>
+
 <div id="easter">✌️ PEACE MODE<br><span style="font-size:.45em;letter-spacing:.3em;font-weight:400">GooD Glitch · The Gesture Interface</span></div>
 
 <script>
@@ -662,12 +665,12 @@ function handleAction(a){
   if(t==='nav'){ if(v==='prev') navTo(S.section-1); else if(v==='next') navTo(S.section+1); else navTo(parseInt(v)); }
   else if(t==='speak'){ Narrator.sayScript(v); showToast('🔊 '+v.toUpperCase()); }
 }
-// mouse click fallback on all interactive elements
-document.addEventListener('DOMContentLoaded',()=>{
+// mouse click fallback — wire up after a tick so all elements exist
+setTimeout(()=>{
   document.querySelectorAll('.hoverable').forEach(el=>{
     el.addEventListener('click',()=>{ if(el.dataset.action) handleAction(el.dataset.action); });
   });
-});
+},0);
 
 // ══════════════════════════════════════════
 // TOAST
@@ -823,7 +826,9 @@ async function ensureVoices(){
 }
 
 async function initMediaPipe(){
-  const vid=document.getElementById('cam-vid');
+  // mp-vid is outside #app so display:none can't block it
+  const vid=document.getElementById('mp-vid');
+  const preview=document.getElementById('cam-vid');
   setLoad(10,'Requesting camera...');
 
   let stream;
@@ -834,12 +839,16 @@ async function initMediaPipe(){
     return;
   }
 
+  // feed same stream to both: mp-vid (for MediaPipe) and cam-vid (for preview)
   vid.srcObject=stream;
+  preview.srcObject=stream;
+
   await Promise.race([
-    new Promise(r=>{ if(vid.readyState>=2) r(); else vid.oncanplay=r; }),
-    new Promise(r=>setTimeout(r,4000))
+    new Promise(r=>{ if(vid.readyState>=2) r(); else{ vid.onloadedmetadata=()=>r(); vid.oncanplay=()=>r(); } }),
+    new Promise(r=>setTimeout(r,5000))
   ]);
   try{ await vid.play(); }catch(_){}
+  try{ await preview.play(); }catch(_){}
 
   setLoad(35,'Loading hand tracking...');
   if(typeof Hands==='undefined'){ setLoad(0,'⚠ MediaPipe failed to load. Check your internet connection.'); return; }
