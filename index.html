@@ -5,29 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GooD Glitch</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Audiowide&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
 <style>
-:root {
-  --bg:     #0B1120;
-  --gold:   #F59E0B;
-  --pink:   #EC4899;
-  --green:  #10B981;
-  --amber:  #F59E0B;
-  --indigo: #6366F1;
-  --blue:   #38BDF8;
-  --text:   #F1F5F9;
-  --muted:  #94A3B8;
-  --glass:  rgba(11,17,32,0.82);
-  --border: rgba(248,250,252,0.08);
+:root{
+  --bg:#0B1120;--gold:#F59E0B;--pink:#EC4899;--green:#10B981;
+  --amber:#F59E0B;--indigo:#6366F1;--text:#F1F5F9;--muted:#94A3B8;
+  --border:rgba(248,250,252,.08);
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden}
-body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;cursor:none}
+body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;cursor:default}
+body.hand-on{cursor:none}
 
-/* ═══ INTRO ═══ */
+/* ── INTRO ── */
 #intro{position:fixed;inset:0;z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 40%,#0f1d3a 0%,var(--bg) 70%);transition:opacity .6s}
 .star-field{position:absolute;inset:0;overflow:hidden;pointer-events:none}
 .star{position:absolute;border-radius:50%;background:#fff;animation:twinkle var(--d,3s) ease-in-out infinite var(--del,0s)}
@@ -45,7 +36,7 @@ body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans
 .start-btn:hover{transform:translateY(-2px);box-shadow:0 0 50px rgba(245,158,11,.5)}
 .cam-note{font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(245,158,11,.35);margin-top:16px;letter-spacing:.2em;position:relative;z-index:1}
 
-/* ═══ LOADING ═══ */
+/* ── LOADING ── */
 #loading{position:fixed;inset:0;z-index:999;display:none;flex-direction:column;align-items:center;justify-content:center;background:var(--bg)}
 .ld-logo{font-family:'Audiowide',sans-serif;font-size:11px;color:var(--gold);letter-spacing:.3em;margin-bottom:24px;animation:blink 1.2s infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
@@ -53,10 +44,8 @@ body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans
 .ld-fill{height:100%;width:0%;background:var(--gold);transition:width .35s;box-shadow:0 0 8px var(--gold)}
 .ld-msg{font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(245,158,11,.4);margin-top:14px;letter-spacing:.1em}
 
-/* ═══ APP ═══ */
+/* ── APP ── */
 #app{position:fixed;inset:0;display:none;opacity:0;transition:opacity .9s}
-
-/* canvas overlay */
 #cv{position:fixed;inset:0;z-index:100;pointer-events:none}
 
 /* camera preview */
@@ -64,37 +53,31 @@ body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans
 #cam-wrap video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
 .cam-badge{position:absolute;bottom:5px;left:7px;font-family:'JetBrains Mono',monospace;font-size:8px;color:var(--gold);opacity:.65;letter-spacing:.1em}
 
-/* ═══ HUD ═══ */
-#hud{position:fixed;top:0;left:0;right:0;height:48px;z-index:200;display:flex;align-items:center;padding:0 22px;gap:24px;background:rgba(11,17,32,.9);border-bottom:1px solid rgba(255,255,255,.05);backdrop-filter:blur(16px);font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(241,245,249,.4);letter-spacing:.08em}
+/* ── HUD ── */
+#hud{position:fixed;top:0;left:0;right:0;height:48px;z-index:200;display:flex;align-items:center;padding:0 22px;gap:24px;background:rgba(11,17,32,.9);border-bottom:1px solid rgba(255,255,255,.05);backdrop-filter:blur(16px);font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(241,245,249,.4);letter-spacing:.08em;transition:border-color .5s}
 .hud-brand{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:15px;color:var(--text);letter-spacing:-.01em;margin-right:auto}
 .hud-brand span{color:var(--gold)}
 .hud-sep{width:1px;height:20px;background:rgba(255,255,255,.06)}
-
-/* voice waveform */
 #voice-wrap{display:flex;align-items:center;gap:8px}
-.vbar{width:2px;border-radius:2px;background:var(--gold);transition:height .1s}
-.vbar.animate{animation:vbarAnim .7s ease-in-out infinite}
-.vbar:nth-child(2){animation-delay:.1s}
-.vbar:nth-child(3){animation-delay:.18s}
-.vbar:nth-child(4){animation-delay:.06s}
-.vbar:nth-child(5){animation-delay:.24s}
+.vbar{width:2px;border-radius:2px;background:var(--gold);height:4px;transition:height .1s}
+.vbar.go{animation:vbarAnim .7s ease-in-out infinite}
+.vbar:nth-child(2){animation-delay:.1s}.vbar:nth-child(3){animation-delay:.18s}.vbar:nth-child(4){animation-delay:.06s}.vbar:nth-child(5){animation-delay:.24s}
 @keyframes vbarAnim{0%,100%{height:3px;opacity:.4}50%{height:14px;opacity:1}}
 #voice-state{color:var(--gold);font-size:9px;letter-spacing:.12em}
-.hud-pill{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);border-radius:4px;padding:3px 8px;font-size:9px}
-.hud-pill.active{border-color:var(--gold);color:var(--gold)}
-#hud-gesture{min-width:60px}
+.hud-pill{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);border-radius:4px;padding:3px 8px;font-size:9px;min-width:60px;text-align:center}
+.hud-pill.on{border-color:var(--gold);color:var(--gold)}
 #btn-mute{background:none;border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:3px 8px;font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(241,245,249,.5);cursor:pointer;letter-spacing:.1em;transition:all .2s}
 #btn-mute:hover{border-color:var(--gold);color:var(--gold)}
-#btn-mute.muted{color:#ef4444;border-color:#ef4444}
+#btn-mute.off{color:#ef4444;border-color:#ef4444}
 
-/* ═══ GESTURE TOAST ═══ */
-#toast{position:fixed;top:70px;left:50%;transform:translateX(-50%) translateY(-10px);z-index:300;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--gold);background:rgba(11,17,32,.9);border:1px solid rgba(245,158,11,.3);border-radius:6px;padding:7px 16px;letter-spacing:.12em;opacity:0;transition:opacity .2s,transform .2s;white-space:nowrap}
+/* ── TOAST ── */
+#toast{position:fixed;top:70px;left:50%;transform:translateX(-50%) translateY(-10px);z-index:300;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--gold);background:rgba(11,17,32,.92);border:1px solid rgba(245,158,11,.3);border-radius:6px;padding:7px 16px;letter-spacing:.12em;opacity:0;transition:opacity .2s,transform .2s;white-space:nowrap;pointer-events:none}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
-/* ═══ NAV HINT (bottom) ═══ */
-#nav-hint{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);z-index:200;font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(241,245,249,.3);letter-spacing:.15em;text-align:center;pointer-events:none}
+/* ── NAV HINT ── */
+#nav-hint{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);z-index:200;font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(241,245,249,.28);letter-spacing:.15em;text-align:center;pointer-events:none;white-space:nowrap}
 
-/* ═══ NAV DOTS ═══ */
+/* ── NAV DOTS ── */
 #nav-dots{position:fixed;right:22px;top:50%;transform:translateY(-50%);z-index:200;display:flex;flex-direction:column;gap:10px}
 .ndot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);cursor:pointer;transition:all .3s}
 .ndot.active{background:var(--gold);box-shadow:0 0 10px var(--gold);transform:scale(1.5)}
@@ -103,46 +86,38 @@ body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans
 .ndot[data-color="amber"].active{background:var(--amber);box-shadow:0 0 10px var(--amber)}
 .ndot[data-color="indigo"].active{background:var(--indigo);box-shadow:0 0 10px var(--indigo)}
 
-/* ═══ NAV ARROWS ═══ */
-.nav-arrow{position:fixed;top:50%;z-index:150;width:48px;height:80px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);color:rgba(255,255,255,.25);font-size:20px;cursor:pointer;transition:all .3s;pointer-events:auto}
-#arrow-prev{left:0;border-radius:0 8px 8px 0;transform:translateY(-50%)}
-#arrow-next{right:0;border-radius:8px 0 0 8px;transform:translateY(-50%)}
-.nav-arrow:hover,.nav-arrow.hov{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.3);color:var(--gold)}
+/* ── NAV ARROWS ── */
+.nav-arrow{position:fixed;top:50%;z-index:150;width:56px;height:96px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.4);font-size:24px;cursor:pointer;transition:all .3s;user-select:none}
+#arrow-prev{left:0;border-radius:0 10px 10px 0;transform:translateY(-50%)}
+#arrow-next{right:0;border-radius:10px 0 0 10px;transform:translateY(-50%)}
+.nav-arrow:hover,.nav-arrow.hov{background:rgba(245,158,11,.15);border-color:rgba(245,158,11,.5);color:var(--gold);box-shadow:0 0 20px rgba(245,158,11,.2)}
 .nav-arrow.hidden{opacity:0;pointer-events:none}
 
-/* ═══ SECTIONS ═══ */
+/* ── SECTIONS ── */
 #sections{position:fixed;top:48px;left:0;right:0;bottom:0;overflow:hidden}
 .track{display:flex;height:100%;transition:transform .65s cubic-bezier(.22,1,.36,1)}
 .section{min-width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:32px 80px 32px 32px;overflow:hidden;position:relative}
 
-/* ═══ SHARED COMPONENTS ═══ */
+/* ── SHARED ── */
 .sec-label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.35em;text-transform:uppercase;opacity:.55;margin-bottom:8px}
 .sec-title{font-weight:800;font-size:clamp(26px,4vw,52px);line-height:1.05;letter-spacing:-.02em;margin-bottom:6px}
 .sec-sub{font-size:clamp(13px,1.2vw,16px);font-weight:300;color:var(--muted);line-height:1.6;max-width:560px;margin-bottom:28px}
-
 .card{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:16px;padding:22px 20px;transition:all .3s;position:relative;overflow:hidden;cursor:pointer}
-.card::after{content:'';position:absolute;inset:0;border-radius:16px;opacity:0;transition:opacity .3s}
 .card:hover,.card.hov{transform:translateY(-4px)}
 .card-tag{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;margin-bottom:8px;font-weight:500}
 .card-name{font-weight:700;font-size:17px;letter-spacing:-.01em;margin-bottom:5px}
 .card-line{font-size:12px;font-weight:300;color:var(--muted);line-height:1.5;margin-bottom:12px}
 .card-metric{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;opacity:.7}
-
-/* sector-specific card glow */
 .card.pink:hover,.card.pink.hov{border-color:rgba(236,72,153,.3);box-shadow:0 8px 40px rgba(236,72,153,.1)}
 .card.green:hover,.card.green.hov{border-color:rgba(16,185,129,.3);box-shadow:0 8px 40px rgba(16,185,129,.1)}
 .card.amber:hover,.card.amber.hov{border-color:rgba(245,158,11,.3);box-shadow:0 8px 40px rgba(245,158,11,.1)}
 .card.indigo:hover,.card.indigo.hov{border-color:rgba(99,102,241,.3);box-shadow:0 8px 40px rgba(99,102,241,.1)}
-.card.pink .card-tag{color:var(--pink)}
-.card.green .card-tag{color:var(--green)}
-.card.amber .card-tag{color:var(--amber)}
-.card.indigo .card-tag{color:var(--indigo)}
-.card.pink .card-metric{color:var(--pink)}
-.card.green .card-metric{color:var(--green)}
-.card.amber .card-metric{color:var(--amber)}
-.card.indigo .card-metric{color:var(--indigo)}
+.card.pink .card-tag,.card.pink .card-metric{color:var(--pink)}
+.card.green .card-tag,.card.green .card-metric{color:var(--green)}
+.card.amber .card-tag,.card.amber .card-metric{color:var(--amber)}
+.card.indigo .card-tag,.card.indigo .card-metric{color:var(--indigo)}
 
-/* ═══ HOME ═══ */
+/* ── HOME ── */
 #s0{flex-direction:column;text-align:center}
 .home-bg{position:absolute;inset:0;overflow:hidden;pointer-events:none}
 .blob{position:absolute;border-radius:50%;filter:blur(100px);pointer-events:none}
@@ -152,40 +127,36 @@ body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans
 .home-sub{font-size:clamp(14px,1.3vw,18px);font-weight:300;color:var(--muted);max-width:540px;line-height:1.7;margin:0 auto 36px}
 .sector-pills{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
 .spill{padding:11px 22px;border:1px solid rgba(255,255,255,.1);border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;transition:all .3s;letter-spacing:.02em;background:rgba(255,255,255,.03)}
-.spill.pink{color:var(--pink)} .spill.pink:hover,.spill.pink.hov{border-color:var(--pink);background:rgba(236,72,153,.08);box-shadow:0 0 20px rgba(236,72,153,.2)}
-.spill.green{color:var(--green)} .spill.green:hover,.spill.green.hov{border-color:var(--green);background:rgba(16,185,129,.08);box-shadow:0 0 20px rgba(16,185,129,.2)}
-.spill.amber{color:var(--amber)} .spill.amber:hover,.spill.amber.hov{border-color:var(--amber);background:rgba(245,158,11,.08);box-shadow:0 0 20px rgba(245,158,11,.2)}
-.spill.indigo{color:var(--indigo)} .spill.indigo:hover,.spill.indigo.hov{border-color:var(--indigo);background:rgba(99,102,241,.08);box-shadow:0 0 20px rgba(99,102,241,.2)}
+.spill.pink{color:var(--pink)}.spill.pink:hover,.spill.pink.hov{border-color:var(--pink);background:rgba(236,72,153,.08);box-shadow:0 0 20px rgba(236,72,153,.2)}
+.spill.green{color:var(--green)}.spill.green:hover,.spill.green.hov{border-color:var(--green);background:rgba(16,185,129,.08);box-shadow:0 0 20px rgba(16,185,129,.2)}
+.spill.amber{color:var(--amber)}.spill.amber:hover,.spill.amber.hov{border-color:var(--amber);background:rgba(245,158,11,.08);box-shadow:0 0 20px rgba(245,158,11,.2)}
+.spill.indigo{color:var(--indigo)}.spill.indigo:hover,.spill.indigo.hov{border-color:var(--indigo);background:rgba(99,102,241,.08);box-shadow:0 0 20px rgba(99,102,241,.2)}
 
-/* ═══ GRID LAYOUTS ═══ */
+/* ── GRIDS ── */
 .grid-2x2{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:680px;width:100%}
 .grid-1x2{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:680px;width:100%}
 .grid-1x3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;max-width:900px;width:100%}
 @media(max-width:700px){.grid-2x2,.grid-1x2,.grid-1x3{grid-template-columns:1fr}}
-
-/* ═══ STAT ROW ═══ */
 .stat-row{display:flex;gap:24px;margin-top:20px;flex-wrap:wrap}
 .stat{text-align:center}
 .stat-n{font-weight:800;font-size:22px;letter-spacing:-.02em}
 .stat-l{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:.12em;margin-top:2px}
-
-/* ═══ CONTACT ROW ═══ */
 .contact-row{display:flex;align-items:center;gap:18px;margin-top:24px;flex-wrap:wrap}
 .contact-email{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--gold);letter-spacing:.05em}
 .contact-type{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;padding:10px 16px;font-size:12px;font-weight:500;cursor:pointer;transition:all .3s}
 .contact-type:hover,.contact-type.hov{border-color:var(--gold);color:var(--gold);background:rgba(245,158,11,.06)}
 
-/* ═══ LEGEND ═══ */
+/* ── LEGEND ── */
 #legend{position:fixed;left:22px;bottom:22px;z-index:200;background:rgba(11,17,32,.95);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:18px;backdrop-filter:blur(16px);min-width:220px;transform:translateX(-280px);transition:transform .4s cubic-bezier(.16,1,.3,1)}
 #legend.open{transform:translateX(0)}
-#leg-btn{position:fixed;left:22px;bottom:22px;z-index:201;background:rgba(11,17,32,.9);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 13px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:.12em;backdrop-filter:blur(10px);transition:all .25s}
+#leg-btn{position:fixed;left:22px;bottom:22px;z-index:201;background:rgba(11,17,32,.9);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 13px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:.12em;backdrop-filter:blur(10px)}
 .lrow{display:flex;gap:10px;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05)}
 .lrow:last-child{border-bottom:none}
 .lem{font-size:14px;width:20px;text-align:center}
 .lkey{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--gold);min-width:80px;letter-spacing:.08em}
 .lval{font-size:11px;color:rgba(241,245,249,.35)}
 
-/* ═══ MISC ═══ */
+/* ── MISC ── */
 .scanline{position:fixed;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(245,158,11,.08),transparent);z-index:500;pointer-events:none;animation:scanAnim 6s linear infinite}
 @keyframes scanAnim{from{transform:translateY(0)}to{transform:translateY(100vh)}}
 #easter{display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:400;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:clamp(20px,3vw,40px);color:var(--gold);text-align:center;text-shadow:0 0 40px rgba(245,158,11,.6);animation:fadeUp .4s;pointer-events:none}
@@ -195,10 +166,9 @@ body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans
 </style>
 </head>
 <body>
-
 <div class="scanline"></div>
 
-<!-- ═══ INTRO ═══ -->
+<!-- INTRO -->
 <div id="intro">
   <div class="star-field" id="stars"></div>
   <div class="intro-mark">GESTURE INTERFACE</div>
@@ -216,32 +186,27 @@ body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans
   <p class="cam-note">CAMERA PERMISSION REQUIRED · SERVE VIA localhost</p>
 </div>
 
-<!-- ═══ LOADING ═══ -->
+<!-- LOADING -->
 <div id="loading">
   <div class="ld-logo">LOADING NEURAL INTERFACE</div>
   <div class="ld-track"><div class="ld-fill" id="ld-fill"></div></div>
   <div class="ld-msg" id="ld-msg">Starting...</div>
 </div>
 
-<!-- ═══ APP ═══ -->
+<!-- APP -->
 <div id="app">
   <canvas id="cv"></canvas>
 
-  <!-- camera -->
   <div id="cam-wrap">
     <video id="cam-vid" autoplay muted playsinline></video>
     <div class="cam-badge">● LIVE</div>
   </div>
 
-  <!-- HUD -->
   <div id="hud">
     <div class="hud-brand">GooD <span>Glitch</span></div>
     <div id="voice-wrap">
-      <div class="vbar" id="vb1" style="height:4px"></div>
-      <div class="vbar" id="vb2" style="height:4px"></div>
-      <div class="vbar" id="vb3" style="height:4px"></div>
-      <div class="vbar" id="vb4" style="height:4px"></div>
-      <div class="vbar" id="vb5" style="height:4px"></div>
+      <div class="vbar"></div><div class="vbar"></div><div class="vbar"></div>
+      <div class="vbar"></div><div class="vbar"></div>
       <span id="voice-state">READY</span>
     </div>
     <div class="hud-sep"></div>
@@ -251,13 +216,9 @@ body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans
     <button id="btn-mute" onclick="toggleMute()">🔊 VOICE</button>
   </div>
 
-  <!-- toast -->
   <div id="toast"></div>
+  <div id="nav-hint">☝️ POINT · 🤏 PINCH TO SELECT &nbsp;|&nbsp; 👋 SWIPE TO NAVIGATE &nbsp;|&nbsp; ✋ PAUSE · ✌️ RESUME VOICE</div>
 
-  <!-- nav hint -->
-  <div id="nav-hint">POINT · PINCH TO SELECT &nbsp;|&nbsp; SWIPE TO NAVIGATE &nbsp;|&nbsp; ✋ PALM = PAUSE VOICE &nbsp;|&nbsp; ✌️ V = RESUME</div>
-
-  <!-- nav dots -->
   <div id="nav-dots">
     <div class="ndot active" data-color="gold" data-i="0"></div>
     <div class="ndot" data-color="pink" data-i="1"></div>
@@ -266,15 +227,14 @@ body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans
     <div class="ndot" data-color="indigo" data-i="4"></div>
   </div>
 
-  <!-- nav arrows -->
   <div class="nav-arrow hidden hoverable" id="arrow-prev" data-action="nav:prev">‹</div>
   <div class="nav-arrow hoverable" id="arrow-next" data-action="nav:next">›</div>
 
-  <!-- ═══ SECTIONS ═══ -->
+  <!-- SECTIONS -->
   <div id="sections">
     <div class="track" id="track">
 
-      <!-- 0: HOME -->
+      <!-- HOME -->
       <div class="section" id="s0">
         <div class="home-bg">
           <div class="blob" style="width:700px;height:700px;background:rgba(245,158,11,.05);top:-250px;left:-100px;animation:floatA 10s ease-in-out infinite"></div>
@@ -282,9 +242,9 @@ body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans
         </div>
         <div style="position:relative;z-index:1;max-width:700px">
           <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:.35em;margin-bottom:16px;opacity:.65">GESTURE-CONTROLLED EXPERIENCE</div>
-          <div class="home-logo">the<span>Yaan</span><br>Studio</div>
-          <div class="home-eng">ENGINEERED TO SOLVE · DESIGNED TO FEEL</div>
-          <p class="home-sub">We apply behavioral psychology, neurolinguistic science, and intelligent design to build AI products that solve complex problems — through experiences that feel intuitive and extraordinary.</p>
+          <div class="home-logo">GooD <span>Glitch</span></div>
+          <div class="home-eng">GESTURE-POWERED · AI-DRIVEN · HUMAN-FIRST</div>
+          <p class="home-sub">A gesture-controlled interface showcasing AI products built to solve real problems — from healthcare to agriculture. Navigate with your hands and eyes.</p>
           <div class="sector-pills">
             <div class="spill pink hoverable" data-action="nav:1">🏥 Healthcare</div>
             <div class="spill green hoverable" data-action="nav:2">📚 Education</div>
@@ -294,12 +254,12 @@ body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans
         </div>
       </div>
 
-      <!-- 1: HEALTHCARE -->
+      <!-- HEALTHCARE -->
       <div class="section" id="s1" style="flex-direction:column;align-items:flex-start">
         <div style="max-width:900px;width:100%">
           <div class="sec-label" style="color:var(--pink)">SECTOR 01 — HEALTHCARE</div>
-          <div class="sec-title" style="color:var(--text)">When Every Second Counts</div>
-          <p class="sec-sub">India has 0.7 physicians per 1,000 people. Those doctors spend 40% of their time on paperwork. We built four products to change that — from silicon to interface.</p>
+          <div class="sec-title">When Every Second Counts</div>
+          <p class="sec-sub">India has 0.7 physicians per 1,000 people. Those doctors spend 40% of their time on paperwork. Four products built to change that — from silicon to interface.</p>
           <div class="grid-2x2">
             <div class="card pink hoverable" data-action="speak:sentra">
               <div class="card-tag">SENTRA</div>
@@ -329,15 +289,15 @@ body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans
         </div>
       </div>
 
-      <!-- 2: EDUCATION -->
+      <!-- EDUCATION -->
       <div class="section" id="s2" style="flex-direction:column;align-items:flex-start">
         <div style="max-width:900px;width:100%">
           <div class="sec-label" style="color:var(--green)">SECTOR 02 — EDUCATION</div>
-          <div class="sec-title" style="color:var(--text)">Solving Bloom's 2σ Problem</div>
+          <div class="sec-title">Solving Bloom's 2σ Problem</div>
           <p class="sec-sub">In 1984, Benjamin Bloom proved one-on-one tutoring makes average students perform two standard deviations better. India has a 56% learning poverty rate. We're fixing the ratio.</p>
           <div class="grid-1x2">
-            <div class="card green hoverable" data-action="speak:antaryaan">
-              <div class="card-tag">antarYaan</div>
+            <div class="card green hoverable" data-action="speak:antara">
+              <div class="card-tag">ANTARA</div>
               <div class="card-name">The AI Tutor</div>
               <div class="card-line">An AI mentor that adapts to each student's pace through a gamified universe of mastery — subjects as constellations, concepts as stars. 12 Indian languages.</div>
               <div class="card-metric">2σ improvement · 1:1 tutor ratio · 12 languages</div>
@@ -358,11 +318,11 @@ body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans
         </div>
       </div>
 
-      <!-- 3: GOVERNMENT -->
+      <!-- GOVERNMENT -->
       <div class="section" id="s3" style="flex-direction:column;align-items:flex-start">
         <div style="max-width:900px;width:100%">
           <div class="sec-label" style="color:var(--amber)">SECTOR 03 — GOVERNMENT</div>
-          <div class="sec-title" style="color:var(--text)">Making Digital India Accessible</div>
+          <div class="sec-title">Making Digital India Accessible</div>
           <p class="sec-sub">India has incredible digital infrastructure — Aadhaar, UPI, DigiLocker. But most departments still run on disconnected legacy systems. Citizens need 6 office visits for one clearance.</p>
           <div class="grid-1x2">
             <div class="card amber hoverable" data-action="speak:setu">
@@ -387,11 +347,11 @@ body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans
         </div>
       </div>
 
-      <!-- 4: ROBOTICS + CONTACT -->
+      <!-- ROBOTICS + CONTACT -->
       <div class="section" id="s4" style="flex-direction:column;align-items:flex-start">
         <div style="max-width:960px;width:100%">
           <div class="sec-label" style="color:var(--indigo)">SECTOR 04 — ROBOTICS & EDGE AI</div>
-          <div class="sec-title" style="color:var(--text)">Intelligence at the Edge</div>
+          <div class="sec-title">Intelligence at the Edge</div>
           <p class="sec-sub">Custom edge hardware. On-device AI. 24/7 autonomous operation. Built for Indian industrial conditions — dust, heat, humidity, connectivity gaps.</p>
           <div class="grid-1x3">
             <div class="card indigo hoverable" data-action="speak:yantra">
@@ -417,7 +377,7 @@ body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans
             <div style="font-weight:700;font-size:18px;margin-bottom:6px">Let's build something that matters.</div>
             <div style="font-size:13px;color:var(--muted);margin-bottom:16px">Healthcare, education, government, manufacturing — or if you want to join us.</div>
             <div class="contact-row">
-              <div class="contact-email">hello@theyaan.studio</div>
+              <div class="contact-email">hello@goodglitch.studio</div>
               <div class="contact-type hoverable" data-action="speak:institutions">For Institutions</div>
               <div class="contact-type hoverable" data-action="speak:investors">For Investors</div>
               <div class="contact-type hoverable" data-action="speak:team">Join the Team</div>
@@ -426,10 +386,10 @@ body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans
         </div>
       </div>
 
-    </div><!-- /track -->
-  </div><!-- /sections -->
+    </div>
+  </div>
 
-  <!-- legend -->
+  <!-- LEGEND -->
   <div id="legend">
     <div style="font-family:'Audiowide',sans-serif;font-size:10px;color:var(--gold);letter-spacing:.2em;margin-bottom:12px">GESTURE GUIDE</div>
     <div class="lrow"><div class="lem">☝️</div><div class="lkey">POINT</div><div class="lval">move cursor</div></div>
@@ -437,637 +397,516 @@ body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans
     <div class="lrow"><div class="lem">👋</div><div class="lkey">SWIPE</div><div class="lval">next / prev section</div></div>
     <div class="lrow"><div class="lem">👊</div><div class="lkey">FIST</div><div class="lval">go back</div></div>
     <div class="lrow"><div class="lem">✋</div><div class="lkey">PALM</div><div class="lval">pause voice</div></div>
-    <div class="lrow"><div class="lem">✌️</div><div class="lkey">V SIGN</div><div class="lval">resume voice</div></div>
-    <div class="lrow"><div class="lem">✌️</div><div class="lkey">V SIGN (hold)</div><div class="lval">easter egg</div></div>
-    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(241,245,249,.25)">← → ARROW KEYS ALSO WORK</div>
+    <div class="lrow"><div class="lem">✌️</div><div class="lkey">V SIGN</div><div class="lval">resume · easter egg</div></div>
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(241,245,249,.25)">← → KEYS · CLICK ARROWS · MOUSE WORKS TOO</div>
   </div>
   <button id="leg-btn" onclick="toggleLegend()">? GESTURES</button>
 
-</div><!-- /app -->
+</div>
 
-<!-- mediapipe input (off-screen, not display:none) -->
-<video id="input-vid" style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0" autoplay muted playsinline></video>
-
-<!-- easter egg -->
-<div id="easter">✌️ PEACE<br><span style="font-size:.45em;letter-spacing:.3em;font-weight:400">GooD Glitch · The Gesture Interface</span></div>
+<div id="easter">✌️ PEACE MODE<br><span style="font-size:.45em;letter-spacing:.3em;font-weight:400">GooD Glitch · The Gesture Interface</span></div>
 
 <script>
-// ════════════════════════════════════════════════
+// ══════════════════════════════════════════
 // STATE
-// ════════════════════════════════════════════════
+// ══════════════════════════════════════════
 const S = {
   section: 0,
-  cur: { x:-1, y:-1 },
-  wrist: { x:-1, y:-1 },   // landmark 0 — used for swipe
-  gaze: { x:-1, y:-1 },
+  cur: {x:-1, y:-1},
+  gaze: {x:-1, y:-1},
   gesture: 'NONE',
+  prevGesture: 'NONE',
   handVis: false,
   faceVis: false,
   legendOpen: false,
   particles: [],
   trail: [],
-  landmarks: null,          // latest hand landmarks — drawn in render loop only
-  wristHistory: [],         // wrist X history for swipe
-  pinchCD: 0, fistCD: 0, winkCD: 0, peaceCD: 0,
-  fps: 0, _fc: 0, _ft: 0,
+  landmarks: null,
+  wristHist: [],
+  gestureBuf: [],
+  cd: {pinch:0, palm:0, peace:0, fist:0, swipe:0, wink:0},
+  fps:0, _fc:0, _ft:0,
 };
+const SEC_NAMES  = ['HOME','HEALTHCARE','EDUCATION','GOVERNMENT','ROBOTICS'];
+const SEC_COLORS = ['#F59E0B','#EC4899','#10B981','#F59E0B','#6366F1'];
 
-const SECTION_NAMES = ['HOME','HEALTHCARE','EDUCATION','GOVERNMENT','ROBOTICS'];
-const SECTION_COLORS = ['#F59E0B','#EC4899','#10B981','#F59E0B','#6366F1'];
-
-// ════════════════════════════════════════════════
-// NARRATOR (Web Speech API)
-// ════════════════════════════════════════════════
+// ══════════════════════════════════════════
+// NARRATOR
+// ══════════════════════════════════════════
 const Narrator = {
-  paused: false,
-  muted: false,
-  voice: null,
-  _seq: [],
-  _idx: 0,
+  paused: false, muted: false, voice: null, _seq:[], _idx:0,
 
   SCRIPTS: {
-    intro: [
+    intro:[
       "Welcome to Good Glitch.",
-      "I'll guide you through everything with my voice.",
+      "I'll guide you with my voice.",
       "Raise your index finger to move the cursor.",
-      "Pinch your thumb and index finger together to select anything.",
-      "To navigate sections, do a quick swipe with your hand — left to go forward, right to go back.",
-      "Show me an open palm to pause my voice.",
-      "Flash a V sign to bring me back.",
+      "Pinch your thumb and index finger together to select.",
+      "Swipe your hand left or right to navigate between sections.",
+      "Show me an open palm to pause my voice. Flash a V sign to bring me back.",
       "Let's begin."
     ],
-    0: [
-      "theYaan Studio.",
-      "Engineered to solve. Designed to feel.",
-      "We apply behavioral psychology, neurolinguistic science, and intelligent design",
-      "to build AI products that solve complex problems — through experiences that feel intuitive and extraordinary.",
-      "Point at a sector and pinch to explore it.",
-      "Or swipe your hand left to go to Healthcare."
+    0:[
+      "Good Glitch. A gesture-controlled interface.",
+      "Navigate entirely with your hands and eyes.",
+      "Point at a sector below and pinch to jump straight to it.",
+      "Or swipe your hand left to start with Healthcare."
     ],
-    1: [
+    1:[
       "Healthcare. When every second counts.",
       "India has 0.7 physicians per 1,000 people, and those doctors spend 40 percent of their time on paperwork.",
-      "We've built four products to change that.",
-      "SENTRA: always-on edge AI monitoring for seniors and chronic illness patients — fully offline, sub-second alerts.",
+      "Four products to change that.",
+      "SENTRA: always-on edge AI monitoring — fully offline, sub-second alerts.",
       "DRISHTI: the doctor's AI companion — in-ear guidance, ambient visual AI, 50 percent less documentation.",
-      "PRAXIS: VR and AR medical training that makes AIIMS-level education accessible anywhere.",
-      "KAVACH: patient data encrypted at the silicon layer — a physical guarantee, not a software policy.",
-      "Point at any product and pinch to hear more."
+      "PRAXIS: VR medical training accessible anywhere in India.",
+      "KAVACH: patient data encrypted at the silicon layer.",
+      "Point at any product card and pinch to hear more."
     ],
-    2: [
+    2:[
       "Education. Solving Bloom's Two Sigma Problem.",
       "In 1984, Benjamin Bloom proved that one-on-one tutoring makes average students perform two standard deviations better.",
-      "India has a 56 percent learning poverty rate. One-on-one tutoring costs 50,000 rupees a month.",
-      "antarYaan is that tutor — an AI companion that adapts to each student's pace through a gamified universe of knowledge.",
-      "Available in 12 Indian languages.",
-      "PULSE gives teachers real-time perception of every student's comprehension, emotional state, and learning gaps.",
-      "A class of 40 becomes 40 individuals, each understood and supported."
+      "India has a 56 percent learning poverty rate.",
+      "ANTARA is that tutor — an AI companion adapting to each student's pace in 12 Indian languages.",
+      "PULSE gives teachers real-time insight into every student's comprehension, emotional state, and learning gaps."
     ],
-    3: [
+    3:[
       "Government. Making Digital India accessible to everyone.",
-      "India has incredible infrastructure — Aadhaar, UPI, DigiLocker.",
-      "But most departments still run on disconnected legacy systems. Citizens need 6 office visits for one clearance.",
-      "SETU is the integration layer that connects all of it — a single window clearance that actually works.",
-      "NAGRIK is mobile-first, one-handed, works on 2G, in 12 languages, with full voice navigation.",
-      "750 million smartphone users. Zero agents or middlemen needed."
+      "India has incredible infrastructure — but most departments still run on disconnected legacy systems.",
+      "Citizens need 6 office visits for one clearance.",
+      "SETU is the integration layer that connects all of it.",
+      "NAGRIK brings government services to 750 million smartphone users in 12 languages with full voice navigation."
     ],
-    4: [
+    4:[
       "Robotics and Edge AI. Intelligence at the edge.",
-      "YANTRA detects manufacturing defects at 99.2 percent accuracy in under 50 milliseconds — fully on-device, zero cloud.",
-      "VAYUBOT autonomously inspects bridges, powerlines, and solar farms from the air.",
-      "KRISHI brings precision agriculture to farms as small as one acre — 40 percent less pesticide, 25 percent more yield.",
-      "All running on custom edge hardware built for Indian industrial conditions.",
-      "If you'd like to work with us, our email is hello at theyaan dot studio.",
-      "Point at a contact type and pinch to learn more."
+      "YANTRA detects manufacturing defects at 99.2 percent accuracy in under 50 milliseconds.",
+      "VAYUBOT autonomously inspects bridges, powerlines, and solar farms.",
+      "KRISHI brings precision agriculture to farms as small as one acre.",
+      "All running on custom edge hardware. No cloud. No latency. No compromise.",
+      "Point at a contact option and pinch to learn more."
     ],
-    sentra: ["SENTRA monitors patients at the edge. Wearable sensors feed on-device AI that learns individual baselines, detects anomalies, and alerts caregivers in under one second. No internet required."],
-    drishti: ["DRISHTI is the doctor's AI companion. It combines in-ear prompts, wearable display overlays, and ambient room intelligence — reviewing patient history, watching through intelligent cameras, and surfacing exactly what the doctor needs, before they ask."],
-    praxis: ["PRAXIS delivers AIIMS-level medical training through immersive VR and AR. Walk through a 3D heart. Practice procedures a hundred times. Encounter rare diseases without waiting years. With haptic feedback and collaborative multi-user scenarios."],
-    kavach: ["KAVACH is a hardware security module that encrypts patient data at the silicon level. Tamper-resistant design. AES-256 encryption that cannot be bypassed in software. DPDP and HIPAA compliant by architecture, not policy."],
-    antaryaan: ["antarYaan visualizes knowledge as a universe — subjects are constellations, concepts are stars. The AI mentor adapts in real time to each student's pace, fills knowledge gaps, and makes learning feel like an adventure. 12 Indian languages. Works offline."],
-    pulse: ["PULSE gives a teacher with 40 students real-time insight into every single one. Comprehension levels, emotional states, engagement patterns — all mapped live. Smart grouping suggestions, gap-specific exercises, and post-class analytics. Three times faster gap detection, 17 percent better outcomes."],
-    setu: ["SETU bridges government systems from any era. Protocol adapters for over 40 legacy data formats. Citizen-controlled consent at every step. Multi-department workflows with full transparency. Designed for 99.99 percent uptime."],
-    nagrik: ["NAGRIK is government services designed for one-handed use on crowded buses. Low-end Android phones, 2G connections. AI-powered search understands citizen intent in plain language. WhatsApp integration. Auto-filled forms from existing data. No follow-up visits needed."],
-    yantra: ["YANTRA puts computer vision on the factory floor. Custom edge hardware rated IP67 for dust and heat. Every frame processed in under 50 milliseconds. Defect taxonomy that classifies type, severity, and root cause patterns. Plugs into existing lines with minimal installation."],
-    vayubot: ["VAYUBOT flies predefined inspection routes autonomously. Multi-spectral imaging — thermal, visual, LiDAR — simultaneously. On-board AI flags anomalies during flight. No humans at height, no operational shutdowns. Ten times faster than manual inspection."],
-    krishi: ["KRISHI works on farms as small as one acre. Aerial and ground survey for soil-crop baselines. Continuous autonomous monitoring. Centimeter-level precision for targeted inputs. AI models trained on Indian crop varieties, soils, and climate. Vernacular-first farmer interface."],
-    institutions: ["For institutions — healthcare, education, government, or manufacturing. We come with the technology and the team. Deep domain expertise in each sector. Products shaped by the people who deploy them."],
-    investors: ["For investors — products with validated institutional demand across four sectors. Full-stack capability from custom silicon to interface. Long-term plays with measurable real-world impact."],
-    team: ["Join theYaan team. We're hiring engineers, designers, domain experts, and roboticists. Work on products that matter in industries that need it most. Interesting problems guaranteed. Reach us at hello at theyaan dot studio."],
+    sentra:["SENTRA monitors patients at the edge. Wearable sensors feed on-device AI that learns individual baselines, detects anomalies, and alerts caregivers in under one second. No internet required."],
+    drishti:["DRISHTI is the doctor's AI companion. In-ear prompts, wearable display overlays, and ambient room intelligence — surfacing exactly what the doctor needs, before they ask."],
+    praxis:["PRAXIS delivers top-level medical training through immersive VR and AR. Walk through a 3D heart. Practice procedures a hundred times. Encounter rare diseases without waiting years."],
+    kavach:["KAVACH is a hardware security module that encrypts patient data at the silicon level. AES-256 encryption that cannot be bypassed in software. Compliant by architecture, not policy."],
+    antara:["ANTARA visualizes knowledge as a universe — subjects are constellations, concepts are stars. The AI mentor adapts in real time to each student's pace. 12 Indian languages. Works offline."],
+    pulse:["PULSE gives a teacher with 40 students real-time insight into every single one. Comprehension levels, emotional states, engagement patterns — all mapped live. Three times faster gap detection."],
+    setu:["SETU bridges government systems from any era. Protocol adapters for over 40 legacy data formats. Citizen-controlled consent at every step. Designed for 99.99 percent uptime."],
+    nagrik:["NAGRIK is government services designed for one-handed use on a low-end Android phone on 2G. AI-powered search understands intent in plain language. WhatsApp integration. No follow-up visits needed."],
+    yantra:["YANTRA puts computer vision on the factory floor. Custom edge hardware rated IP67 for dust and heat. Every frame processed in under 50 milliseconds."],
+    vayubot:["VAYUBOT flies predefined inspection routes autonomously. Multi-spectral imaging — thermal, visual, LiDAR — simultaneously. Ten times faster than manual inspection."],
+    krishi:["KRISHI works on farms as small as one acre. Centimeter-level precision for targeted inputs. AI models trained on Indian crop varieties, soils, and climate."],
+    institutions:["For institutions — healthcare, education, government, or manufacturing. Deep domain expertise in each sector. Products shaped by the people who deploy them."],
+    investors:["For investors — products with validated institutional demand across four sectors. Full-stack capability from custom silicon to interface."],
+    team:["We're hiring engineers, designers, domain experts, and roboticists. Work on products that matter in industries that need it most. Reach us at hello at goodglitch dot studio."],
   },
 
-  _pickVoice() {
+  _pickVoice(){
     const vs = speechSynthesis.getVoices();
     this.voice =
-      vs.find(v => v.name === 'Samantha') ||
-      vs.find(v => v.name.includes('Google US English')) ||
-      vs.find(v => v.lang === 'en-US' && v.name.toLowerCase().includes('female')) ||
-      vs.find(v => v.lang === 'en-US') ||
-      vs.find(v => v.lang.startsWith('en')) ||
-      null;
+      vs.find(v=>v.name==='Samantha') ||
+      vs.find(v=>v.name.includes('Google US English')) ||
+      vs.find(v=>v.lang==='en-US') ||
+      vs.find(v=>v.lang.startsWith('en')) || null;
   },
 
-  sayScript(key) {
+  sayScript(key){
     const lines = this.SCRIPTS[key];
-    if (!lines || this.muted || this.paused) return;
+    if(!lines || this.muted || this.paused) return;
     speechSynthesis.cancel();
-    this._seq = [...lines];
-    this._idx = 0;
-    this._next();
+    this._seq=[...lines]; this._idx=0; this._next();
   },
 
-  _next() {
-    if (this._idx >= this._seq.length || this.muted || this.paused) {
-      setVoiceUI(false);
-      return;
-    }
+  _next(){
+    if(this._idx>=this._seq.length || this.muted || this.paused){ setVoiceUI(false); return; }
     const u = new SpeechSynthesisUtterance(this._seq[this._idx++]);
-    u.rate  = 0.93;
-    u.pitch = 1.02;
-    u.volume = 1.0;
-    if (this.voice) u.voice = this.voice;
-    u.onstart = () => setVoiceUI(true);
-    u.onend   = () => this._next();
-    u.onerror = () => this._next();
+    u.rate=0.93; u.pitch=1.02; u.volume=1.0;
+    if(this.voice) u.voice=this.voice;
+    u.onstart=()=>setVoiceUI(true);
+    u.onend=()=>this._next();
+    u.onerror=()=>this._next();
     speechSynthesis.speak(u);
   },
 
-  pause() {
-    this.paused = true;
-    speechSynthesis.cancel();
-    setVoiceUI(false, 'PAUSED');
-    showToast('✋  VOICE PAUSED');
-  },
-
-  resume(section) {
-    this.paused = false;
-    showToast('✌️  VOICE RESUMED');
-    this.sayScript(section ?? S.section);
-  },
-
-  onSection(n) {
-    if (this.paused || this.muted) return;
-    this.sayScript(n);
-  },
-
-  toggle() {
-    this.muted = !this.muted;
-    const btn = document.getElementById('btn-mute');
-    if (this.muted) {
-      speechSynthesis.cancel();
-      setVoiceUI(false,'MUTED');
-      btn.textContent = '🔇 VOICE';
-      btn.classList.add('muted');
-    } else {
-      btn.textContent = '🔊 VOICE';
-      btn.classList.remove('muted');
-      this.sayScript(S.section);
-    }
+  pause(){ this.paused=true; speechSynthesis.cancel(); setVoiceUI(false,'PAUSED'); showToast('✋  VOICE PAUSED'); },
+  resume(){ this.paused=false; setVoiceUI(false,'ACTIVE'); showToast('✌️  VOICE RESUMED'); this.sayScript(S.section); },
+  onSection(n){ if(!this.paused&&!this.muted) this.sayScript(n); },
+  toggle(){
+    this.muted=!this.muted;
+    const b=document.getElementById('btn-mute');
+    if(this.muted){ speechSynthesis.cancel(); setVoiceUI(false,'MUTED'); b.textContent='🔇 VOICE'; b.classList.add('off'); }
+    else{ b.textContent='🔊 VOICE'; b.classList.remove('off'); this.sayScript(S.section); }
   }
 };
 
-function toggleMute() { Narrator.toggle(); }
-
-speechSynthesis.onvoiceschanged = () => Narrator._pickVoice();
+function toggleMute(){ Narrator.toggle(); }
+speechSynthesis.onvoiceschanged=()=>Narrator._pickVoice();
 Narrator._pickVoice();
 
-function setVoiceUI(speaking, label) {
-  const bars = document.querySelectorAll('.vbar');
-  const st = document.getElementById('voice-state');
-  bars.forEach(b => {
-    if (speaking) b.classList.add('animate');
-    else { b.classList.remove('animate'); b.style.height = '4px'; }
+function setVoiceUI(speaking, label){
+  document.querySelectorAll('.vbar').forEach(b=>{
+    if(speaking) b.classList.add('go'); else{ b.classList.remove('go'); b.style.height='4px'; }
   });
-  if (label) st.textContent = label;
-  else st.textContent = speaking ? 'SPEAKING' : (Narrator.paused ? 'PAUSED' : Narrator.muted ? 'MUTED' : 'READY');
+  const st=document.getElementById('voice-state');
+  st.textContent = label || (speaking?'SPEAKING':Narrator.paused?'PAUSED':Narrator.muted?'MUTED':'READY');
 }
 
-// ════════════════════════════════════════════════
+// ══════════════════════════════════════════
 // CANVAS
-// ════════════════════════════════════════════════
-const cv = document.getElementById('cv');
-const cx = cv.getContext('2d');
-function resize() { cv.width = window.innerWidth; cv.height = window.innerHeight; }
-window.addEventListener('resize', resize);
-resize();
+// ══════════════════════════════════════════
+const cv=document.getElementById('cv'), cx=cv.getContext('2d');
+function resize(){ cv.width=window.innerWidth; cv.height=window.innerHeight; }
+window.addEventListener('resize',resize); resize();
 
-// ════════════════════════════════════════════════
+// ══════════════════════════════════════════
 // PARTICLES
-// ════════════════════════════════════════════════
-function mkP(x,y,col) {
-  return { x,y,col,
-    vx:(Math.random()-.5)*3,
-    vy:(Math.random()-.5)*3-1.5,
-    life:1,
-    decay:.025+Math.random()*.04,
-    r:1.5+Math.random()*3
-  };
+// ══════════════════════════════════════════
+function mkP(x,y,col){
+  return{x,y,col,vx:(Math.random()-.5)*3,vy:(Math.random()-.5)*3-1.5,life:1,decay:.025+Math.random()*.04,r:1.5+Math.random()*3};
 }
-function spawn(x,y,n=3,col='#F59E0B') {
-  for(let i=0;i<n;i++) S.particles.push(mkP(x,y,col));
-}
-function burst(x,y,n=50) {
+function spawn(x,y,n=3,col='#F59E0B'){ for(let i=0;i<n;i++) S.particles.push(mkP(x,y,col)); }
+function burst(x,y,n=50){
   for(let i=0;i<n;i++){
-    const a=(i/n)*Math.PI*2,sp=2+Math.random()*5;
-    const p=mkP(x,y,`hsl(${i*(360/n)},100%,65%)`);
-    p.vx=Math.cos(a)*sp; p.vy=Math.sin(a)*sp;
-    S.particles.push(p);
+    const a=(i/n)*Math.PI*2,sp=2+Math.random()*5,p=mkP(x,y,`hsl(${i*(360/n)},100%,65%)`);
+    p.vx=Math.cos(a)*sp; p.vy=Math.sin(a)*sp; S.particles.push(p);
   }
 }
 
-// ════════════════════════════════════════════════
+// ══════════════════════════════════════════
 // GESTURE DETECTION
-// ════════════════════════════════════════════════
+// ══════════════════════════════════════════
 function d2(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
-function up(lm,t,p){ return lm[t].y < lm[p].y; }
+function ext(lm,tip,pip){ return lm[tip].y < lm[pip].y; }
 
-function detect(lm) {
+function detect(lm){
   if(!lm||!lm.length) return 'NONE';
-  const idx=up(lm,8,6), mid=up(lm,12,10), rng=up(lm,16,14), pky=up(lm,20,18);
-  const hand=d2(lm[0],lm[9]);
-  const pinch=d2(lm[4],lm[8])/hand;
-  if(pinch<0.28) return 'PINCH';
+  const idx=ext(lm,8,6), mid=ext(lm,12,10), rng=ext(lm,16,14), pky=ext(lm,20,18);
+  const handSz=d2(lm[0],lm[9]);
+  // strict pinch: thumb-tip to index-tip < 12% of hand size, AND middle/ring/pinky curled
+  const pinchRatio=d2(lm[4],lm[8])/Math.max(handSz,.001);
+  if(pinchRatio<0.12 && !mid && !rng) return 'PINCH';
+  if(!idx&&!mid&&!rng&&!pky) return 'FIST';
   if(idx&&mid&&rng&&pky) return 'PALM';
   if(idx&&mid&&!rng&&!pky) return 'PEACE';
   if(idx&&!mid&&!rng&&!pky) return 'POINT';
-  if(!idx&&!mid&&!rng&&!pky) return 'FIST';
   return 'NONE';
 }
 
-// ════════════════════════════════════════════════
-// SKELETON DRAW
-// ════════════════════════════════════════════════
-const BONES = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
-
-function drawSkeleton(lm, accentCol) {
-  const W=cv.width,H=cv.height;
-  const pt=i=>[(1-lm[i].x)*W, lm[i].y*H];
+// ══════════════════════════════════════════
+// SKELETON
+// ══════════════════════════════════════════
+const BONES=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+function drawSkeleton(lm,col){
+  const W=cv.width,H=cv.height, pt=i=>[(1-lm[i].x)*W, lm[i].y*H];
   cx.save();
-  cx.globalAlpha=.35;
-  cx.strokeStyle=accentCol||'#F59E0B';
-  cx.lineWidth=1;
-  cx.shadowBlur=4; cx.shadowColor=accentCol||'#F59E0B';
-  for(const[a,b]of BONES){
-    const[ax,ay]=pt(a),[bx,by]=pt(b);
-    cx.beginPath();cx.moveTo(ax,ay);cx.lineTo(bx,by);cx.stroke();
-  }
-  // joints
+  cx.globalAlpha=.3; cx.strokeStyle=col; cx.lineWidth=1; cx.shadowBlur=3; cx.shadowColor=col;
+  for(const[a,b]of BONES){const[ax,ay]=pt(a),[bx,by]=pt(b);cx.beginPath();cx.moveTo(ax,ay);cx.lineTo(bx,by);cx.stroke();}
   for(let i=0;i<21;i++){
     const[x,y]=pt(i);
-    cx.fillStyle=i===8?'#EC4899':accentCol||'#F59E0B';
-    cx.globalAlpha=i===8?.9:.5;
-    cx.shadowColor=i===8?'#EC4899':accentCol||'#F59E0B';
+    cx.fillStyle=i===8?'#EC4899':col; cx.globalAlpha=i===8?.85:.45; cx.shadowColor=i===8?'#EC4899':col;
     cx.beginPath();cx.arc(x,y,i===8?4:2,0,Math.PI*2);cx.fill();
   }
   cx.restore();
 }
 
-// ════════════════════════════════════════════════
+// ══════════════════════════════════════════
 // GAZE
-// ════════════════════════════════════════════════
-function processGaze(lm) {
+// ══════════════════════════════════════════
+function processGaze(lm){
   if(!lm||lm.length<478){S.faceVis=false;return;}
   S.faceVis=true;
   const ri=lm[468],li=lm[473];
-  if(ri&&li){S.gaze.x=1-(ri.x+li.x)/2;S.gaze.y=(ri.y+li.y)/2;}
+  if(ri&&li){S.gaze.x=1-(ri.x+li.x)/2; S.gaze.y=(ri.y+li.y)/2;}
   // wink
   const rt=lm[159],rb=lm[145],ro=lm[33],ri2=lm[133];
-  if(rt&&rb&&ro&&ri2&&S.winkCD<=0){
+  if(rt&&rb&&ro&&ri2&&S.cd.wink<=0){
     const asp=Math.abs(rt.y-rb.y)/Math.max(.001,Math.abs(ro.x-ri2.x));
-    if(asp<0.12){
-      showToast('😉  WINK');
-      doClick(S.cur.x*cv.width,S.cur.y*cv.height);
-      S.winkCD=60;
-    }
+    if(asp<0.12){ showToast('😉 WINK'); doClick(S.cur.x*cv.width,S.cur.y*cv.height); S.cd.wink=60; }
   }
   document.getElementById('hud-gaze').textContent='GAZE ✓';
 }
 
-// ════════════════════════════════════════════════
+// ══════════════════════════════════════════
 // NAVIGATION
-// ════════════════════════════════════════════════
-function navTo(n) {
+// ══════════════════════════════════════════
+function navTo(n){
   if(n<0||n>4||n===S.section) return;
   S.section=n;
   document.getElementById('track').style.transform=`translateX(-${n*100}%)`;
   document.querySelectorAll('.ndot').forEach((d,i)=>d.classList.toggle('active',i===n));
-  document.getElementById('hud').style.setProperty('border-bottom-color',SECTION_COLORS[n]+'33');
-  // arrows
+  document.getElementById('hud').style.borderBottomColor=SEC_COLORS[n]+'44';
   document.getElementById('arrow-prev').classList.toggle('hidden',n===0);
   document.getElementById('arrow-next').classList.toggle('hidden',n===4);
-  // burst
-  for(let k=0;k<18;k++) spawn(Math.random()*cv.width,Math.random()*cv.height,1,SECTION_COLORS[n]);
-  // narrate
+  for(let k=0;k<16;k++) spawn(Math.random()*cv.width,Math.random()*cv.height,1,SEC_COLORS[n]);
   Narrator.onSection(n);
 }
 
-// ════════════════════════════════════════════════
+// ══════════════════════════════════════════
 // UI INTERACTION
-// ════════════════════════════════════════════════
+// ══════════════════════════════════════════
 let lastHov=null;
-function updateHover(sx,sy) {
+function updateHover(sx,sy){
   if(sx<0||sy<0) return;
-  const els=document.elementsFromPoint(sx,sy);
-  const h=els.find(e=>e.classList.contains('hoverable'));
-  if(h!==lastHov){
-    if(lastHov) lastHov.classList.remove('hov');
-    if(h) h.classList.add('hov');
-    lastHov=h;
-  }
+  const h=document.elementsFromPoint(sx,sy).find(e=>e.classList.contains('hoverable'));
+  if(h!==lastHov){ if(lastHov) lastHov.classList.remove('hov'); if(h) h.classList.add('hov'); lastHov=h; }
 }
-
-function doClick(sx,sy) {
+function doClick(sx,sy){
   if(sx<0||sy<0) return;
-  const els=document.elementsFromPoint(sx,sy);
-  const h=els.find(e=>e.classList.contains('hoverable'));
+  const h=document.elementsFromPoint(sx,sy).find(e=>e.classList.contains('hoverable'));
   if(!h) return;
-  const a=h.dataset.action;
-  if(a) handleAction(a);
-  spawn(sx,sy,16,SECTION_COLORS[S.section]);
-  h.classList.add('hov');
-  setTimeout(()=>h.classList.remove('hov'),300);
+  if(h.dataset.action) handleAction(h.dataset.action);
+  spawn(sx,sy,14,SEC_COLORS[S.section]);
+  h.classList.add('hov'); setTimeout(()=>h.classList.remove('hov'),300);
 }
-
-function handleAction(a) {
+function handleAction(a){
   const[t,v]=a.split(':');
-  if(t==='nav'){
-    if(v==='prev') navTo(S.section-1);
-    else if(v==='next') navTo(S.section+1);
-    else navTo(parseInt(v));
-  } else if(t==='speak') {
-    Narrator.sayScript(v);
-    showToast('🔊  '+v.toUpperCase());
-  }
+  if(t==='nav'){ if(v==='prev') navTo(S.section-1); else if(v==='next') navTo(S.section+1); else navTo(parseInt(v)); }
+  else if(t==='speak'){ Narrator.sayScript(v); showToast('🔊 '+v.toUpperCase()); }
 }
+// mouse click fallback on all interactive elements
+document.addEventListener('DOMContentLoaded',()=>{
+  document.querySelectorAll('.hoverable').forEach(el=>{
+    el.addEventListener('click',()=>{ if(el.dataset.action) handleAction(el.dataset.action); });
+  });
+});
 
-// ════════════════════════════════════════════════
+// ══════════════════════════════════════════
 // TOAST
-// ════════════════════════════════════════════════
-let _toastT;
-function showToast(txt) {
+// ══════════════════════════════════════════
+let _tt;
+function showToast(txt){
   const el=document.getElementById('toast');
   el.textContent=txt; el.classList.add('show');
-  clearTimeout(_toastT);
-  _toastT=setTimeout(()=>el.classList.remove('show'),1800);
+  clearTimeout(_tt); _tt=setTimeout(()=>el.classList.remove('show'),1800);
+}
+function toggleLegend(){ S.legendOpen=!S.legendOpen; document.getElementById('legend').classList.toggle('open',S.legendOpen); }
+
+// ══════════════════════════════════════════
+// SWIPE — wrist sliding window (last 350ms)
+// ══════════════════════════════════════════
+function checkSwipe(){
+  if(S.cd.swipe>0) return;
+  const now=Date.now();
+  S.wristHist=S.wristHist.filter(p=>now-p.t<350);
+  if(S.wristHist.length<5) return;
+  const first=S.wristHist[0], last=S.wristHist[S.wristHist.length-1];
+  const dt=last.t-first.t, dx=last.x-first.x;
+  if(dt<80||Math.abs(dx)<0.18) return;
+  if(dx<0) navTo(Math.min(4,S.section+1)); else navTo(Math.max(0,S.section-1));
+  S.wristHist=[]; S.cd.swipe=60;
+  showToast(dx<0?'← NEXT':'→ PREV');
 }
 
-function toggleLegend(){
-  S.legendOpen=!S.legendOpen;
-  document.getElementById('legend').classList.toggle('open',S.legendOpen);
-}
-
-// ════════════════════════════════════════════════
-// SWIPE — wrist-based (stable), called from render loop
-// ════════════════════════════════════════════════
-let _swipeCD=0;
-function checkSwipe() {
-  if(_swipeCD>0){_swipeCD--;return;}
-  const h=S.wristHistory;
-  if(h.length<8) return;
-  const old=h[0], now=h[h.length-1];
-  const dt=now.t-old.t;
-  if(dt<80||dt>600) return;          // must happen within 80–600ms
-  const dx=now.x-old.x;
-  if(Math.abs(dx)<0.18) return;      // min travel 18% of screen width
-  if(dx<0) navTo(Math.min(4,S.section+1));   // swipe left → next
-  else      navTo(Math.max(0,S.section-1));  // swipe right → prev
-  S.wristHistory=[];
-  _swipeCD=90;
-}
-
-// ════════════════════════════════════════════════
+// ══════════════════════════════════════════
 // RENDER LOOP
-// ════════════════════════════════════════════════
+// ══════════════════════════════════════════
 let _lt=0;
 function render(ts){
-  const dt=ts-_lt;_lt=ts;
-  S._ft+=dt;S._fc++;
-  if(S._ft>1000){S.fps=S._fc;S._fc=0;S._ft=0;document.getElementById('hud-fps').textContent=S.fps+' FPS';}
+  const dt=ts-_lt; _lt=ts;
+  S._ft+=dt; S._fc++;
+  if(S._ft>1000){ S.fps=S._fc; S._fc=0; S._ft=0; document.getElementById('hud-fps').textContent=S.fps+' FPS'; }
 
   cx.clearRect(0,0,cv.width,cv.height);
 
-  // skeleton drawn HERE (single place, after clearRect)
-  if(S.landmarks) drawSkeleton(S.landmarks, SECTION_COLORS[S.section]);
+  // skeleton — drawn once here, after clearRect
+  if(S.landmarks) drawSkeleton(S.landmarks, SEC_COLORS[S.section]);
 
   // cooldowns
-  if(S.pinchCD>0)S.pinchCD--;
-  if(S.fistCD>0)S.fistCD--;
-  if(S.winkCD>0)S.winkCD--;
-  if(S.peaceCD>0)S.peaceCD--;
+  for(const k in S.cd) if(S.cd[k]>0) S.cd[k]--;
 
   // gaze spotlight
   if(S.faceVis&&S.gaze.x>=0){
-    const gx=S.gaze.x*cv.width,gy=S.gaze.y*cv.height;
-    const g=cx.createRadialGradient(gx,gy,0,gx,gy,250);
-    g.addColorStop(0,'rgba(99,102,241,.07)');
-    g.addColorStop(1,'rgba(0,0,0,0)');
-    cx.fillStyle=g;cx.fillRect(0,0,cv.width,cv.height);
-    cx.save();cx.globalAlpha=.18;cx.strokeStyle='#6366F1';
-    cx.lineWidth=1;cx.shadowBlur=6;cx.shadowColor='#6366F1';
-    cx.beginPath();cx.arc(gx,gy,12,0,Math.PI*2);cx.stroke();cx.restore();
+    const gx=S.gaze.x*cv.width, gy=S.gaze.y*cv.height;
+    const g=cx.createRadialGradient(gx,gy,0,gx,gy,260);
+    g.addColorStop(0,'rgba(99,102,241,.07)'); g.addColorStop(1,'rgba(0,0,0,0)');
+    cx.fillStyle=g; cx.fillRect(0,0,cv.width,cv.height);
+    cx.save(); cx.globalAlpha=.15; cx.strokeStyle='#6366F1'; cx.lineWidth=1;
+    cx.beginPath(); cx.arc(gx,gy,12,0,Math.PI*2); cx.stroke(); cx.restore();
   }
 
   // particles
   S.particles=S.particles.filter(p=>p.life>0);
   for(const p of S.particles){
-    p.x+=p.vx;p.y+=p.vy;p.vy+=.07;p.life-=p.decay;
-    cx.save();cx.globalAlpha=p.life;cx.fillStyle=p.col;
-    cx.shadowBlur=8;cx.shadowColor=p.col;
-    cx.beginPath();cx.arc(p.x,p.y,p.r*p.life,0,Math.PI*2);cx.fill();cx.restore();
+    p.x+=p.vx; p.y+=p.vy; p.vy+=.07; p.life-=p.decay;
+    cx.save(); cx.globalAlpha=p.life; cx.fillStyle=p.col;
+    cx.shadowBlur=8; cx.shadowColor=p.col;
+    cx.beginPath(); cx.arc(p.x,p.y,p.r*p.life,0,Math.PI*2); cx.fill(); cx.restore();
   }
 
-  // hand
   if(S.handVis&&S.cur.x>=0){
-    const sx=S.cur.x*cv.width,sy=S.cur.y*cv.height;
-    const col=SECTION_COLORS[S.section];
+    const sx=S.cur.x*cv.width, sy=S.cur.y*cv.height;
+    const col=SEC_COLORS[S.section];
+    const isRising=S.gesture!==S.prevGesture;
 
     // trail
     S.trail.push({x:sx,y:sy});
-    if(S.trail.length>22)S.trail.shift();
+    if(S.trail.length>20) S.trail.shift();
     for(let i=1;i<S.trail.length;i++){
       const a=i/S.trail.length;
-      cx.save();cx.globalAlpha=a*.3;cx.strokeStyle=col;cx.lineWidth=1.5*a;
-      cx.shadowBlur=5;cx.shadowColor=col;
-      cx.beginPath();cx.moveTo(S.trail[i-1].x,S.trail[i-1].y);cx.lineTo(S.trail[i].x,S.trail[i].y);cx.stroke();cx.restore();
+      cx.save(); cx.globalAlpha=a*.25; cx.strokeStyle=col; cx.lineWidth=1.5*a;
+      cx.beginPath(); cx.moveTo(S.trail[i-1].x,S.trail[i-1].y); cx.lineTo(S.trail[i].x,S.trail[i].y); cx.stroke(); cx.restore();
     }
 
-    // cursor glow
+    // glow
     const G=cx.createRadialGradient(sx,sy,0,sx,sy,80);
-    G.addColorStop(0,col+'28');G.addColorStop(1,'rgba(0,0,0,0)');
-    cx.fillStyle=G;cx.fillRect(sx-80,sy-80,160,160);
+    G.addColorStop(0,col+'22'); G.addColorStop(1,'rgba(0,0,0,0)');
+    cx.fillStyle=G; cx.fillRect(sx-80,sy-80,160,160);
 
     // cursor ring
     const ringR=S.gesture==='PINCH'?8:S.gesture==='PALM'?22:16;
     cx.save();
-    cx.strokeStyle=col;cx.lineWidth=S.gesture==='PINCH'?2:1.5;
-    cx.globalAlpha=.9;cx.shadowBlur=18;cx.shadowColor=col;
-    cx.beginPath();cx.arc(sx,sy,ringR,0,Math.PI*2);cx.stroke();
-    cx.fillStyle=col;cx.globalAlpha=1;cx.shadowBlur=10;
-    cx.beginPath();cx.arc(sx,sy,2.5,0,Math.PI*2);cx.fill();
+    cx.strokeStyle=col; cx.lineWidth=S.gesture==='PINCH'?2.5:1.5;
+    cx.globalAlpha=.9; cx.shadowBlur=18; cx.shadowColor=col;
+    cx.beginPath(); cx.arc(sx,sy,ringR,0,Math.PI*2); cx.stroke();
+    cx.fillStyle=col; cx.globalAlpha=1; cx.shadowBlur=10;
+    cx.beginPath(); cx.arc(sx,sy,2.5,0,Math.PI*2); cx.fill();
     cx.restore();
 
-    // spawn trail particles on point/pinch
-    if((S.gesture==='POINT'||S.gesture==='PINCH')&&Math.random()<.35)
+    if((S.gesture==='POINT'||S.gesture==='PINCH')&&Math.random()<.3)
       spawn(sx,sy,1,S.gesture==='PINCH'?'#EC4899':col);
 
-    // hover
     updateHover(sx,sy);
 
+    // ── GESTURE ACTIONS (rising-edge where appropriate) ──
+
     // PINCH → click
-    if(S.gesture==='PINCH'&&S.pinchCD<=0){
-      doClick(sx,sy);
-      spawn(sx,sy,18,'#EC4899');
-      S.pinchCD=50;
+    if(S.gesture==='PINCH'&&S.cd.pinch<=0){
+      doClick(sx,sy); spawn(sx,sy,16,'#EC4899'); S.cd.pinch=25;
     }
 
-    // PALM → pause voice
-    if(S.gesture==='PALM'&&!Narrator.paused&&S.pinchCD<=0){
-      Narrator.pause();
-      S.pinchCD=30; // reuse cd to prevent spam
+    // PALM → pause voice (rising edge only)
+    if(S.gesture==='PALM'&&isRising&&!Narrator.paused&&S.cd.palm<=0){
+      Narrator.pause(); S.cd.palm=40;
     }
 
-    // PEACE → resume / easter egg
-    if(S.gesture==='PEACE'){
-      if(Narrator.paused&&S.peaceCD<=0){
-        Narrator.resume(S.section);
-        S.peaceCD=60;
-      }
-      if(S.peaceCD<=0){
-        S.peaceCD=180;
+    // PEACE → resume if paused, else easter egg (rising edge)
+    if(S.gesture==='PEACE'&&isRising&&S.cd.peace<=0){
+      if(Narrator.paused){ Narrator.resume(); }
+      else{
         const ee=document.getElementById('easter');
-        ee.style.display='block';
-        setTimeout(()=>ee.style.display='none',3000);
+        ee.style.display='block'; setTimeout(()=>ee.style.display='none',3000);
         burst(sx,sy,60);
       }
+      S.cd.peace=60;
     }
 
-    // FIST → go back
-    if(S.gesture==='FIST'&&S.fistCD<=0){
-      navTo(Math.max(0,S.section-1));
-      S.fistCD=70;
-      showToast('👊  BACK');
+    // FIST → go back (rising edge)
+    if(S.gesture==='FIST'&&isRising&&S.cd.fist<=0){
+      navTo(Math.max(0,S.section-1)); S.cd.fist=45; showToast('👊 BACK');
     }
 
-    // swipe tracking (wrist-based)
     checkSwipe();
 
+    S.prevGesture=S.gesture;
   } else {
-    S.trail=[];
-    if(lastHov){lastHov.classList.remove('hov');lastHov=null;}
+    S.trail=[]; S.prevGesture='NONE';
+    if(lastHov){ lastHov.classList.remove('hov'); lastHov=null; }
   }
 
   requestAnimationFrame(render);
 }
 requestAnimationFrame(render);
 
-// ════════════════════════════════════════════════
-// MEDIAPIPE
-// ════════════════════════════════════════════════
+// ══════════════════════════════════════════
+// MEDIAPIPE — uses cam-vid directly
+// ══════════════════════════════════════════
 function setLoad(pct,msg){
   document.getElementById('ld-fill').style.width=pct+'%';
   document.getElementById('ld-msg').textContent=msg;
 }
 
+async function ensureVoices(){
+  if(speechSynthesis.getVoices().length>0){ Narrator._pickVoice(); return; }
+  await new Promise(res=>{
+    speechSynthesis.addEventListener('voiceschanged',()=>{ Narrator._pickVoice(); res(); },{once:true});
+    setTimeout(res,1500);
+  });
+}
+
 async function initMediaPipe(){
-  const vid=document.getElementById('input-vid');
+  const vid=document.getElementById('cam-vid');
   setLoad(10,'Requesting camera...');
 
-  // ── 1. Camera stream ──
   let stream;
-  try {
+  try{
     stream=await navigator.mediaDevices.getUserMedia({video:{width:640,height:480,facingMode:'user'},audio:false});
-  } catch(e){
+  }catch(e){
     setLoad(0,'⚠ Camera denied — allow camera access and reload.');
     return;
   }
 
   vid.srcObject=stream;
-  document.getElementById('cam-vid').srcObject=stream;
-
-  // Wait for video to be playable (with fallback timeout)
   await Promise.race([
-    new Promise(r=>{ if(vid.readyState>=2){r();}else{vid.oncanplay=r;} }),
-    new Promise(r=>setTimeout(r,3000))
+    new Promise(r=>{ if(vid.readyState>=2) r(); else vid.oncanplay=r; }),
+    new Promise(r=>setTimeout(r,4000))
   ]);
   try{ await vid.play(); }catch(_){}
 
   setLoad(35,'Loading hand tracking...');
-
-  // ── 2. Hands ──
-  if(typeof Hands==='undefined'){
-    setLoad(0,'⚠ MediaPipe failed to load — check internet connection.');
-    return;
-  }
+  if(typeof Hands==='undefined'){ setLoad(0,'⚠ MediaPipe failed to load. Check your internet connection.'); return; }
 
   const hands=new Hands({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
   hands.setOptions({maxNumHands:1,modelComplexity:1,minDetectionConfidence:.65,minTrackingConfidence:.5});
   hands.onResults(res=>{
-    if(res.multiHandLandmarks&&res.multiHandLandmarks.length>0){
+    const hasHand=res.multiHandLandmarks&&res.multiHandLandmarks.length>0;
+    document.body.classList.toggle('hand-on',hasHand);
+    if(hasHand){
       const lm=res.multiHandLandmarks[0];
-      S.handVis=true;
-      S.landmarks=lm;
+      S.handVis=true; S.landmarks=lm;
       S.cur.x=1-lm[8].x; S.cur.y=lm[8].y;
-      S.wrist.x=1-lm[0].x; S.wrist.y=lm[0].y;
-      const g=detect(lm);
-      if(g!==S.gesture){
-        S.gesture=g;
-        document.getElementById('hud-gesture').textContent=g==='NONE'?'—':g;
-        document.getElementById('hud-gesture').className='hud-pill'+(g!=='NONE'?' active':'');
+      // wrist for swipe
+      S.wristHist.push({x:1-lm[0].x, t:Date.now()});
+      // stability buffer — require 3/4 frames to agree
+      const raw=detect(lm);
+      S.gestureBuf.push(raw);
+      if(S.gestureBuf.length>4) S.gestureBuf.shift();
+      const stable=S.gestureBuf.filter(g=>g===raw).length>=3?raw:S.gesture;
+      if(stable!==S.gesture){
+        S.gesture=stable;
+        const el=document.getElementById('hud-gesture');
+        el.textContent=stable==='NONE'?'—':stable;
+        el.className='hud-pill'+(stable!=='NONE'?' on':'');
       }
-      // push wrist for swipe — time-stamped
-      S.wristHistory.push({x:S.wrist.x, t:Date.now()});
-      if(S.wristHistory.length>20) S.wristHistory.shift();
     } else {
-      S.handVis=false; S.gesture='NONE'; S.landmarks=null;
-      S.wristHistory=[];
+      S.handVis=false; S.gesture='NONE'; S.landmarks=null; S.gestureBuf=[];
       document.getElementById('hud-gesture').textContent='NO HAND';
       document.getElementById('hud-gesture').className='hud-pill';
     }
   });
 
   setLoad(65,'Loading face mesh...');
-
-  // ── 3. FaceMesh ──
   let face=null;
   if(typeof FaceMesh!=='undefined'){
     face=new FaceMesh({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
     face.setOptions({maxNumFaces:1,refineLandmarks:true,minDetectionConfidence:.5,minTrackingConfidence:.5});
     face.onResults(res=>{
-      if(res.multiFaceLandmarks&&res.multiFaceLandmarks.length>0){
-        processGaze(res.multiFaceLandmarks[0]);
-      } else {
-        S.faceVis=false;
-        document.getElementById('hud-gaze').textContent='GAZE —';
-      }
+      if(res.multiFaceLandmarks&&res.multiFaceLandmarks.length>0) processGaze(res.multiFaceLandmarks[0]);
+      else{ S.faceVis=false; document.getElementById('hud-gaze').textContent='GAZE —'; }
     });
   }
 
   setLoad(90,'Starting...');
-
-  // ── 4. Frame loop — processing guard prevents frame queue pileup ──
-  let _fc=0, _busy=false;
-  (async function frameLoop(){
-    if(!_busy && vid.readyState>=2 && !vid.paused){
-      _busy=true;
-      _fc++;
+  let _fc2=0, _busy=false;
+  (async function loop(){
+    if(!_busy&&vid.readyState>=2&&!vid.paused){
+      _busy=true; _fc2++;
       try{ await hands.send({image:vid}); }catch(_){}
-      if(face&&_fc%3===0){ try{ await face.send({image:vid}); }catch(_){} }
+      if(face&&_fc2%3===0){ try{ await face.send({image:vid}); }catch(_){} }
       _busy=false;
     }
-    requestAnimationFrame(frameLoop);
+    requestAnimationFrame(loop);
   })();
 
   setLoad(100,'Ready!');
-  setTimeout(launchApp, 300);
+  setTimeout(launchApp,300);
 }
 
-function launchApp(){
+async function launchApp(){
   document.getElementById('loading').style.display='none';
   const app=document.getElementById('app');
   app.style.display='block';
   requestAnimationFrame(()=>app.style.opacity='1');
-  // start narrator intro after brief pause
-  setTimeout(()=>Narrator.sayScript('intro'),1200);
+  await ensureVoices();
+  setTimeout(()=>Narrator.sayScript('intro'),800);
 }
 
 async function startExperience(){
@@ -1080,35 +919,30 @@ async function startExperience(){
   await initMediaPipe();
 }
 
-// ════════════════════════════════════════════════
-// STAR FIELD (intro)
-// ════════════════════════════════════════════════
-(function(){
+// ══════════════════════════════════════════
+// STAR FIELD
+// ══════════════════════════════════════════
+(()=>{
   const sf=document.getElementById('stars');
   for(let i=0;i<140;i++){
-    const s=document.createElement('div');
+    const s=document.createElement('div'),sz=Math.random()*2+.5;
     s.className='star';
-    const sz=Math.random()*2+.5;
     s.style.cssText=`width:${sz}px;height:${sz}px;top:${Math.random()*100}%;left:${Math.random()*100}%;--d:${2+Math.random()*4}s;--del:${Math.random()*4}s;--op:${.4+Math.random()*.6}`;
     sf.appendChild(s);
   }
 })();
 
-// ════════════════════════════════════════════════
-// KEYBOARD FALLBACK
-// ════════════════════════════════════════════════
+// ══════════════════════════════════════════
+// KEYBOARD + CLICK FALLBACKS
+// ══════════════════════════════════════════
 document.addEventListener('keydown',e=>{
   if(e.key==='ArrowRight'||e.key==='ArrowDown') navTo(Math.min(4,S.section+1));
   if(e.key==='ArrowLeft'||e.key==='ArrowUp') navTo(Math.max(0,S.section-1));
   if(e.key==='h'||e.key==='H') toggleLegend();
   if(e.key==='m'||e.key==='M') toggleMute();
+  if(e.key===' '){ if(Narrator.paused) Narrator.resume(); else Narrator.pause(); e.preventDefault(); }
   if(e.key>='1'&&e.key<='5') navTo(parseInt(e.key)-1);
-  if(e.key===' '){
-    if(Narrator.paused) Narrator.resume(S.section);
-    else Narrator.pause();
-  }
 });
-
 document.querySelectorAll('.ndot').forEach((d,i)=>d.addEventListener('click',()=>navTo(i)));
 document.getElementById('arrow-prev').addEventListener('click',()=>navTo(S.section-1));
 document.getElementById('arrow-next').addEventListener('click',()=>navTo(S.section+1));
