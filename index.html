@@ -776,10 +776,9 @@ function render(ts){
       doClick(sx,sy); spawn(sx,sy,16,'#EC4899'); S.cd.pinch=25;
     }
 
-    // PALM → pause voice (rising edge only)
-    if(S.gesture==='PALM'&&isRising&&!Narrator.paused&&S.cd.palm<=0){
-      Narrator.pause(); S.cd.palm=40;
-    }
+    // PALM → pause voice only after holding 8 frames (~0.25s)
+    if(S.gesture==='PALM'){ S._palmF=(S._palmF||0)+1; if(S._palmF>=8&&!Narrator.paused&&S.cd.palm<=0){ Narrator.pause(); S.cd.palm=40; } }
+    else { S._palmF=0; }
 
     // PEACE → resume if paused, else easter egg (rising edge)
     if(S.gesture==='PEACE'&&isRising&&S.cd.peace<=0){
@@ -792,10 +791,9 @@ function render(ts){
       S.cd.peace=60;
     }
 
-    // FIST → go back (rising edge)
-    if(S.gesture==='FIST'&&isRising&&S.cd.fist<=0){
-      navTo(Math.max(0,S.section-1)); S.cd.fist=45; showToast('👊 BACK');
-    }
+    // FIST → go back after holding 5 frames (avoids accidental trigger during swipe)
+    if(S.gesture==='FIST'){ S._fistF=(S._fistF||0)+1; if(S._fistF>=5&&S.cd.fist<=0){ navTo(Math.max(0,S.section-1)); S.cd.fist=45; showToast('👊 BACK'); S._fistF=0; } }
+    else { S._fistF=0; }
 
     checkSwipe();
 
@@ -895,15 +893,16 @@ async function initMediaPipe(){
   }
 
   setLoad(90,'Starting...');
-  let _fc2=0, _busy=false;
+  let _fc2=0, _busy=false, _busyTs=0;
   (async function loop(){
+    requestAnimationFrame(loop);                          // always first — loop never dies
+    if(_busy && Date.now()-_busyTs>500){ _busy=false; }  // watchdog: unstick after 500ms
     if(!_busy&&vid.readyState>=2&&!vid.paused){
-      _busy=true; _fc2++;
+      _busy=true; _busyTs=Date.now(); _fc2++;
       try{ await hands.send({image:vid}); }catch(_){}
       if(face&&_fc2%3===0){ try{ await face.send({image:vid}); }catch(_){} }
       _busy=false;
     }
-    requestAnimationFrame(loop);
   })();
 
   setLoad(100,'Ready!');
