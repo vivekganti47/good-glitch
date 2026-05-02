@@ -887,7 +887,7 @@ async function initMediaPipe(){
     if(vid.readyState<2||vid.paused) return;
     if(vid.currentTime===lastT) return;             // skip duplicate frames
     lastT=vid.currentTime; fc++;
-    const ts=performance.now();
+    const ts=Date.now(); // Tasks API needs Unix-epoch ms, not page-relative ms
 
     // ── Hand + gesture (every frame) ──
     try{
