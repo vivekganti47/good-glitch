@@ -6,7 +6,6 @@
 <title>GooD Glitch</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Audiowide&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
 <style>
 :root{
   --bg:#0B1120;--gold:#F59E0B;--pink:#EC4899;--green:#10B981;
@@ -211,7 +210,6 @@ body.hand-on{cursor:none}
     </div>
     <div class="hud-sep"></div>
     <div class="hud-pill" id="hud-gesture">NO HAND</div>
-    <div class="hud-pill" id="hud-gaze">GAZE —</div>
     <div class="hud-pill" id="hud-fps">— FPS</div>
     <button id="btn-mute" onclick="toggleMute()">🔊 VOICE</button>
   </div>
@@ -416,18 +414,16 @@ body.hand-on{cursor:none}
 const S = {
   section: 0,
   cur: {x:-1, y:-1},
-  gaze: {x:-1, y:-1},
   gesture: 'NONE',
   prevGesture: 'NONE',
   handVis: false,
-  faceVis: false,
   legendOpen: false,
   particles: [],
   trail: [],
   landmarks: null,
   wristHist: [],
   gestureBuf: [],
-  cd: {pinch:0, palm:0, peace:0, fist:0, swipe:0, wink:0},
+  cd: {pinch:0, palm:0, peace:0, fist:0, swipe:0},
   fps:0, _fc:0, _ft:0,
 };
 const SEC_NAMES  = ['HOME','HEALTHCARE','EDUCATION','GOVERNMENT','ROBOTICS'];
@@ -593,7 +589,7 @@ function detect(lm){
   if(!lm||!lm.length) return 'NONE';
   const idx=ext(lm,8,6),mid=ext(lm,12,10),rng=ext(lm,16,14),pky=ext(lm,20,18);
   const pinch=d2(lm[4],lm[8])/Math.max(d2(lm[0],lm[9]),.001);
-  if(pinch<0.18) return 'PINCH';
+  if(pinch<0.12) return 'PINCH'; // tight — 0.18 caused false PINCH while pointing
   if(!idx&&!mid&&!rng&&!pky) return 'FIST';
   if(idx&&mid&&rng&&pky) return 'PALM';
   if(idx&&mid&&!rng&&!pky) return 'PEACE';
@@ -616,23 +612,6 @@ function drawSkeleton(lm,col){
     cx.beginPath();cx.arc(x,y,i===8?4:2,0,Math.PI*2);cx.fill();
   }
   cx.restore();
-}
-
-// ══════════════════════════════════════════
-// GAZE
-// ══════════════════════════════════════════
-function processGaze(lm){
-  if(!lm||lm.length<478){S.faceVis=false;return;}
-  S.faceVis=true;
-  const ri=lm[468],li=lm[473];
-  if(ri&&li){S.gaze.x=1-(ri.x+li.x)/2; S.gaze.y=(ri.y+li.y)/2;}
-  // wink
-  const rt=lm[159],rb=lm[145],ro=lm[33],ri2=lm[133];
-  if(rt&&rb&&ro&&ri2&&S.cd.wink<=0){
-    const asp=Math.abs(rt.y-rb.y)/Math.max(.001,Math.abs(ro.x-ri2.x));
-    if(asp<0.12){ showToast('😉 WINK'); doClick(S.cur.x*cv.width,S.cur.y*cv.height); S.cd.wink=60; }
-  }
-  document.getElementById('hud-gaze').textContent='GAZE ✓';
 }
 
 // ══════════════════════════════════════════
@@ -700,9 +679,10 @@ function checkSwipe(){
   if(S.wristHist.length<5) return;
   const first=S.wristHist[0], last=S.wristHist[S.wristHist.length-1];
   const dt=last.t-first.t, dx=last.x-first.x;
-  if(dt<80||Math.abs(dx)<0.18) return;
+  if(dt<80||Math.abs(dx)<0.15) return;
   if(dx<0) navTo(Math.min(4,S.section+1)); else navTo(Math.max(0,S.section-1));
   S.wristHist=[]; S.cd.swipe=60;
+  S._palmF=0; // prevent swipe → palm → voice pause
   showToast(dx<0?'← NEXT':'→ PREV');
 }
 
@@ -724,16 +704,6 @@ function render(ts){
 
   // cooldowns
   for(const k in S.cd) if(S.cd[k]>0) S.cd[k]--;
-
-  // gaze spotlight
-  if(S.faceVis&&S.gaze.x>=0){
-    const gx=S.gaze.x*cv.width, gy=S.gaze.y*cv.height;
-    const g=cx.createRadialGradient(gx,gy,0,gx,gy,260);
-    g.addColorStop(0,'rgba(99,102,241,.07)'); g.addColorStop(1,'rgba(0,0,0,0)');
-    cx.fillStyle=g; cx.fillRect(0,0,cv.width,cv.height);
-    cx.save(); cx.globalAlpha=.15; cx.strokeStyle='#6366F1'; cx.lineWidth=1;
-    cx.beginPath(); cx.arc(gx,gy,12,0,Math.PI*2); cx.stroke(); cx.restore();
-  }
 
   // particles
   S.particles=S.particles.filter(p=>p.life>0);
@@ -883,27 +853,15 @@ async function initMediaPipe(){
     }
   });
 
-  setLoad(65,'Loading face mesh...');
-  let face=null;
-  if(typeof FaceMesh!=='undefined'){
-    face=new FaceMesh({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
-    face.setOptions({maxNumFaces:1,refineLandmarks:true,minDetectionConfidence:.5,minTrackingConfidence:.5});
-    face.onResults(res=>{
-      if(res.multiFaceLandmarks&&res.multiFaceLandmarks.length>0) processGaze(res.multiFaceLandmarks[0]);
-      else{S.faceVis=false;document.getElementById('hud-gaze').textContent='GAZE —';}
-    });
-  }
-
   setLoad(90,'Starting...');
   let _busy=false,_bt=0,_fc=0;
   (async function loop(){
     requestAnimationFrame(loop);
     if(_busy&&Date.now()-_bt>500) _busy=false;
     if(!_busy&&vid.readyState>=2&&!vid.paused){
-      _busy=true; _bt=Date.now(); _fc++;
-      document.getElementById('hud-fps').textContent=_fc+' frames';
+      _busy=true; _bt=Date.now();
+      document.getElementById('hud-fps').textContent=(++_fc)+' frames';
       try{await hands.send({image:vid});}catch(_){}
-      if(face&&_fc%3===0){try{await face.send({image:vid});}catch(_){}}
       _busy=false;
     }
   })();
